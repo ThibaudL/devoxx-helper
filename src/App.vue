@@ -1,7 +1,9 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import { useAuthStore } from './stores/auth'
+
+const auth = useAuthStore()
 </script>
 
 <template>
-  <HelloWorld />
+  <RouterView v-if="!auth.loading" />
 </template>
