@@ -5,15 +5,18 @@ import { supabase } from '../lib/supabase'
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const loading = ref(true)
+  let _resolve
+  const ready = new Promise(r => { _resolve = r })
 
-  async function init() {
-    const { data: { session } } = await supabase.auth.getSession()
-    user.value = session?.user ?? null
-    loading.value = false
-
+  function init() {
     supabase.auth.onAuthStateChange((_event, session) => {
       user.value = session?.user ?? null
+      if (loading.value) {
+        loading.value = false
+        _resolve()
+      }
     })
+    return ready
   }
 
   async function signInWithGoogle() {
@@ -27,5 +30,5 @@ export const useAuthStore = defineStore('auth', () => {
     await supabase.auth.signOut()
   }
 
-  return { user, loading, init, signInWithGoogle, signOut }
+  return { user, loading, ready, init, signInWithGoogle, signOut }
 })
