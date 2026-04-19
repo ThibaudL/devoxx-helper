@@ -78,95 +78,227 @@ function initials(p) {
 <style scoped>
 .card {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--surface);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--text-4);
+}
+
+.card.bookmarked {
+  border-color: #f97316;
+  background: linear-gradient(to bottom right, color-mix(in srgb, #f97316 5%, var(--surface)), var(--surface));
+}
+
+.card.bookmarked::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: #f97316;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+}
+
+.tag.format {
+  background: var(--surface-subtle);
+  color: var(--text-3);
+  border: 1px solid var(--border);
+}
+
+.tag.day {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.4;
+  color: var(--text-1);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.speakers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.speaker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.speaker img {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.card-meta {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  background: var(--surface);
-  transition: border-color 0.15s, box-shadow 0.15s;
-  cursor: pointer;
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
-.card:hover { box-shadow: var(--shadow-md); }
-.card.bookmarked { border-color: #f97316; background: color-mix(in srgb, #f97316 8%, var(--surface)); }
+.track-name {
+  font-size: 0.8125rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
 
-.card-header { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
 
-.tag {
-  font-size: 0.7rem;
+.level-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.lang-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
   background: var(--surface-subtle);
   color: var(--text-3);
+  border: 1px solid var(--border);
 }
-.tag.format { background: #dbeafe; color: #1d4ed8; }
-.tag.day    { background: #f3e8ff; color: #6b21a8; margin-left: auto; }
-
-h3 { font-size: 0.95rem; font-weight: 600; margin: 0; line-height: 1.3; color: var(--text-1); }
-
-.speakers { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-
-.speaker { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--text-3); }
-.speaker img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
 
 .card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.25rem;
-  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-faint);
 }
 
-.friend-avatars { display: flex; align-items: center; margin-left: auto; margin-right: 0.3rem; }
+.room {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.room::before {
+  content: '📍';
+  font-size: 0.75rem;
+}
+
+.friend-avatars {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  margin-right: 0.5rem;
+}
 
 .friend-avatar {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: #dbeafe; color: #1d4ed8;
-  border: 1.5px solid var(--surface);
-  margin-left: -4px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.55rem; font-weight: 700;
-  overflow: hidden; flex-shrink: 0;
-}
-.friend-avatar:first-child { margin-left: 0; }
-.friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.friend-overflow { font-size: 0.65rem; color: var(--text-4); margin-left: 2px; }
-
-.card-meta {
-  display: flex; flex-direction: column; gap: 0.3rem;
-  margin-top: auto; padding-top: 0.25rem;
-}
-
-.track-name { font-size: 0.72rem; color: var(--text-3); }
-
-.card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-
-.level-badge {
-  font-size: 0.62rem; font-weight: 700;
-  padding: 2px 7px; border-radius: 4px;
-  text-transform: uppercase; letter-spacing: 0.03em;
-  white-space: nowrap;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  color: var(--accent);
+  border: 2px solid var(--surface);
+  margin-left: -0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.625rem;
+  font-weight: 700;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
-.lang-badge {
-  font-size: 0.62rem; font-weight: 700;
-  padding: 2px 7px; border-radius: 4px;
-  background: #e0f2fe; color: #0369a1;
-  text-transform: uppercase;
+.friend-avatar:first-child {
+  margin-left: 0;
 }
 
-.room { font-size: 0.75rem; color: var(--text-4); }
+.friend-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.friend-overflow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-4);
+  margin-left: 0.25rem;
+}
 
 .bookmark-btn {
-  font-size: 0.8rem;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid #f97316;
-  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  color: #f97316;
+  color: var(--text-2);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
-.card.bookmarked .bookmark-btn { background: #f97316; color: white; }
+
+.bookmark-btn:hover {
+  background: var(--surface-subtle);
+  border-color: #f97316;
+  color: #f97316;
+}
+
+.card.bookmarked .bookmark-btn {
+  background: #f97316;
+  border-color: #f97316;
+  color: white;
+}
 </style>

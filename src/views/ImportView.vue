@@ -109,38 +109,46 @@ async function doImport() {
 <template>
   <div class="layout">
     <header>
-      <button class="back-btn" @click="router.push('/')">← Retour</button>
+      <button class="btn btn-secondary" @click="router.push('/')">← Retour</button>
       <h1>Importer depuis Devoxx Companion</h1>
     </header>
 
     <div class="steps">
       <!-- step 1 -->
       <div class="step">
-        <div class="step-number">1</div>
-        <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">1</div>
           <h2>Ouvre le Devoxx Companion et connecte-toi</h2>
-          <p>Va sur <strong>m.devoxx.com/events/devoxxfr2026/schedule</strong> — assure-toi d'être connecté pour que tes likes soient chargés. </p>
+        </div>
+        <div class="step-content">
+          <p>Va sur <a href="https://m.devoxx.com/events/devoxxfr2026/schedule" target="_blank" rel="noopener">m.devoxx.com/events/devoxxfr2026/schedule</a> — assure-toi d'être connecté pour que tes likes soient chargés. </p>
         </div>
       </div>
 
       <!-- step 2 -->
       <div class="step">
-        <div class="step-number">2</div>
-        <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">2</div>
           <h2>Ouvre la console DevTools</h2>
+        </div>
+        <div class="step-content">
           <p>Appuie sur <kbd>F12</kbd> (ou <kbd>Cmd+Option+J</kbd> sur Mac) → onglet <strong>Console</strong>.</p>
         </div>
       </div>
 
       <!-- step 3 -->
       <div class="step">
-        <div class="step-number">3</div>
-        <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">3</div>
           <h2>Colle ce script dans la console et appuie sur Entrée</h2>
+        </div>
+        <div class="step-content">
           <p>Il lit directement la base Firestore dans l'IndexedDB de ton navigateur et copie tes favoris dans le presse-papiers — <strong>pas besoin de rafraîchir</strong>.</p>
           <div class="code-block">
             <pre class="script-code">{{ IDB_SCRIPT }}</pre>
-            <button class="copy-btn" @click="copyStep1">{{ copied1 ? '✓ Copié !' : 'Copier' }}</button>
+            <button class="copy-btn" @click="copyStep1" :class="{ copied: copied1 }">
+              {{ copied1 ? '✓ Copié !' : 'Copier' }}
+            </button>
           </div>
           <p class="hint">Le script affiche le contenu brut de la base dans la console et tente de le copier dans le presse-papiers. Si « Copied to clipboard! » n'apparaît pas, sélectionne manuellement le JSON affiché dans la console et copie-le.</p>
         </div>
@@ -148,9 +156,11 @@ async function doImport() {
 
       <!-- step 4 -->
       <div class="step">
-        <div class="step-number">4</div>
-        <div class="step-content">
+        <div class="step-header">
+          <div class="step-number">4</div>
           <h2>Colle ici le résultat</h2>
+        </div>
+        <div class="step-content">
           <textarea
             v-model="raw"
             class="paste-area"
@@ -169,8 +179,10 @@ async function doImport() {
 
           <div v-if="preview?.matched.length" class="matched-list">
             <div v-for="s in preview.matched" :key="s.id" class="matched-item">
-              <span class="matched-title">{{ s.title }}</span>
-              <span class="matched-speaker">{{ s.speakers[0] }}</span>
+              <div class="matched-info">
+                <span class="matched-title">{{ s.title }}</span>
+                <span class="matched-speaker">{{ s.speakers[0] }}</span>
+              </div>
               <span class="already" v-if="store.bookmarkedIds.has(s.id)">✓ déjà ajouté</span>
             </div>
           </div>
@@ -195,33 +207,42 @@ async function doImport() {
 
 <style scoped>
 .layout {
-  max-width: 680px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: 2rem 1rem;
 }
 
 header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
 }
 
-.back-btn {
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: white;
-  padding: 0.35rem 0.8rem;
-  cursor: pointer;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-h1 {
-  font-size: 1.3rem;
-  font-weight: 700;
+header h1 {
+  font-size: 1.5rem;
   margin: 0;
-  color: #111827;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.btn:hover {
+  background: var(--surface-subtle);
+  border-color: var(--text-4);
 }
 
 .steps {
@@ -231,166 +252,211 @@ h1 {
 }
 
 .step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.step-header {
   display: flex;
+  align-items: center;
   gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface-subtle);
+  border-bottom: 1px solid var(--border);
 }
 
 .step-number {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #f97316;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--accent);
   color: white;
-  font-weight: 700;
-  font-size: 0.9rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
   flex-shrink: 0;
-  margin-top: 2px;
+}
+
+.step-header h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-1);
 }
 
 .step-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.step-content h2 {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0;
-  color: #111827;
+  padding: 1.5rem;
 }
 
 .step-content p {
-  font-size: 0.9rem;
-  color: #4b5563;
-  line-height: 1.5;
-  margin: 0;
+  margin-bottom: 1rem;
+  line-height: 1.6;
 }
 
-kbd {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-size: 0.8rem;
-  font-family: monospace;
+.step-content p:last-child {
+  margin-bottom: 0;
 }
 
 .code-block {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #1e1e2e;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+  position: relative;
+  background: var(--code-bg);
+  border-radius: var(--radius-md);
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
 }
 
-.code-block code,
 .script-code {
-  flex: 1;
-  font-family: monospace;
-  font-size: 0.78rem;
-  color: #a6e3a1;
-  background: none;
-  padding: 0;
   margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  line-height: 1.5;
+  padding: 1rem;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  overflow-x: auto;
+  color: var(--text-2);
+  max-height: 200px;
 }
 
 .copy-btn {
-  border: 1px solid #444;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: #313244;
-  color: #cdd6f4;
-  padding: 0.25rem 0.6rem;
   font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.copy-btn:hover { background: #45475a; }
+.copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.copy-btn.copied {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
 
 .hint {
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-3);
+  font-style: italic;
+  display: block;
+  margin-top: 1rem;
 }
 
 .paste-area {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  padding: 0.75rem;
-  font-family: monospace;
-  font-size: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  color: var(--text-1);
+  font-family: var(--mono);
+  font-size: 0.875rem;
   resize: vertical;
-  box-sizing: border-box;
-  color: #374151;
+  margin-bottom: 1rem;
 }
 
-.paste-area:focus { outline: 2px solid #f97316; border-color: transparent; }
+.paste-area:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+}
 
 .feedback {
-  font-size: 0.88rem;
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
 }
-.feedback.error   { background: #fef2f2; color: #b91c1c; }
-.feedback.info    { background: #eff6ff; color: #1d4ed8; }
-.feedback.success { background: #f0fdf4; color: #166534; }
+
+.feedback.info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.feedback.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.feedback.success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 
 .matched-list {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  max-height: 300px;
   overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
 .matched-item {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 0.83rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: var(--surface-subtle);
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
 
-.matched-item:last-child { border-bottom: none; }
+.matched-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
 
 .matched-title {
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #111827;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--text-1);
 }
 
-.matched-speaker { color: #6b7280; white-space: nowrap; }
+.matched-speaker {
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
 
 .already {
-  font-size: 0.72rem;
-  color: #16a34a;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #10b981;
   white-space: nowrap;
 }
 
 .import-btn {
-  padding: 0.65rem 1.5rem;
-  background: #f97316;
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--accent);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.import-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.import-btn:not(:disabled):hover { background: #ea6c0a; }
+.import-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.import-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+kbd {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
 </style>
