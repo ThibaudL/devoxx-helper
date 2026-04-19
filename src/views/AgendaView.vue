@@ -9,7 +9,6 @@ import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
 import PlanModal from '../components/PlanModal.vue'
 import KeywordFilterModal from '../components/KeywordFilterModal.vue'
-import ProfileModal from '../components/ProfileModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
@@ -174,7 +173,13 @@ async function handleSignOut() {
 
     <div v-if="showNowPanel" class="now-panel">
       <div v-if="currentSessions.length" class="now-section">
-        <p class="now-label">🔴 En cours</p>
+        <div class="now-section-header">
+          <p class="now-label">🔴 En cours</p>
+          <button class="now-close" @click="showNowPanel = false">
+            <span v-if="dark">✕</span>
+            <span v-else>✕</span>
+          </button>
+        </div>
         <div class="now-list">
           <div
             v-for="s in currentSessions" :key="s.id"
@@ -206,8 +211,17 @@ async function handleSignOut() {
         </div>
       </div>
 
+      <div v-if="!currentSessions.length && nextSessions.length" class="now-section-header now-section-header--standalone">
+        <p class="now-label">⏭ Prochainement</p>
+        <button class="now-close" @click="showNowPanel = false">
+          <span v-if="dark">✕</span>
+          <span v-else>✕</span>
+        </button>
+      </div>
+
       <div v-if="nextSessions.length" class="now-section">
-        <p class="now-label">⏭ Prochainement · {{ fmtTime(nextSessions[0].start_time) }}</p>
+        <p v-if="currentSessions.length" class="now-label">⏭ Prochainement · {{ fmtTime(nextSessions[0].start_time) }}</p>
+        <p v-else class="now-label">{{ fmtTime(nextSessions[0].start_time) }}</p>
         <div class="now-list">
           <div
             v-for="s in nextSessions" :key="s.id"
@@ -238,14 +252,23 @@ async function handleSignOut() {
         </div>
       </div>
 
+      <div v-if="!currentSessions.length && !nextSessions.length" class="now-section-header now-section-header--standalone">
+        <p class="now-label">En ce moment</p>
+        <button class="now-close" @click="showNowPanel = false">
+          <span v-if="dark">✕</span>
+          <span v-else>✕</span>
+        </button>
+      </div>
       <p v-if="!currentSessions.length && !nextSessions.length" class="now-empty">
         Aucune session à venir.
       </p>
     </div>
 
-    <TimelineView v-if="viewMode === 'timeline'" />
+    <div v-if="viewMode === 'timeline'" class="timeline-container">
+      <TimelineView />
+    </div>
 
-    <template v-else>
+    <div v-else class="main-content">
       <div class="filters">
         <input v-model="search" placeholder="Rechercher un talk ou speaker..." class="search" />
         <div class="filter-row">
@@ -280,7 +303,7 @@ async function handleSignOut() {
       <div v-else class="grid">
         <SessionCard v-for="s in filtered" :key="s.id" :session="s" :friends="sharing.getFriendsForSession(s.id)" />
       </div>
-    </template>
+    </div>
   </div>
 
   <ShareModal v-if="showShareModal" @close="showShareModal = false" />
@@ -297,16 +320,42 @@ async function handleSignOut() {
 </template>
 
 <style scoped>
-.layout { padding: 1.5rem 1rem; }
-
-header, .toolbar, .filters, .grid, .empty, .now-panel {
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0;
+  overflow: hidden;
 }
 
 header {
-  margin-bottom: 2rem;
+  padding: 1.5rem 1rem 1rem;
+  flex-shrink: 0;
+}
+
+.toolbar {
+  padding: 0 1rem 1rem;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.filters {
+  padding: 0 1rem 1rem;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 1rem 1.5rem;
+}
+
+.timeline-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex children */
 }
 
 .header-content {
@@ -509,29 +558,51 @@ header {
 }
 
 .now-panel {
-  margin-bottom: 2rem;
+  margin: 0 1rem 1rem;
+  flex-shrink: 0;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  padding: 1rem;
+  box-shadow: var(--shadow-md);
+  max-height: 40vh;
+  overflow-y: auto;
+  z-index: 10;
 }
-
+.now-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.now-section-header--standalone {
+  margin-bottom: 0.5rem;
+}
+.now-close {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.now-close:hover {
+  color: var(--text-1);
+}
 .now-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
-
 .now-section:last-child {
   margin-bottom: 0;
 }
-
 .now-label {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-4);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 1rem;
   display: block;
 }
 

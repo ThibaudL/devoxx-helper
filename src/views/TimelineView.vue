@@ -32,20 +32,33 @@ const selectedSession = ref(null)
 
 // drag-scroll
 const scrollEl = ref(null)
-let isDragging = false, startX = 0, scrollLeft = 0
+let isDragging = false, startX = 0, startY = 0, scrollLeft = 0, scrollTop = 0
 
 function onMouseDown(e) {
+  // Only start dragging if it's the left mouse button
+  if (e.button !== 0) return;
   isDragging = true;
   startX = e.pageX - scrollEl.value.offsetLeft;
+  startY = e.pageY - scrollEl.value.offsetTop;
   scrollLeft = scrollEl.value.scrollLeft
+  scrollTop = scrollEl.value.scrollTop
   scrollEl.value.style.cursor = 'grabbing';
   scrollEl.value.style.userSelect = 'none'
+  
+  // Prevent default to avoid text selection/dragging images
+  // but we must be careful not to break clicks on buttons/cards
+  // Clicks are usually handled on mouseUp if the distance is small
 }
 
 function onMouseMove(e) {
   if (!isDragging) return;
-  e.preventDefault()
-  scrollEl.value.scrollLeft = scrollLeft - (e.pageX - scrollEl.value.offsetLeft - startX)
+  e.preventDefault();
+  const x = e.pageX - scrollEl.value.offsetLeft;
+  const y = e.pageY - scrollEl.value.offsetTop;
+  const walkX = x - startX;
+  const walkY = y - startY;
+  scrollEl.value.scrollLeft = scrollLeft - walkX;
+  scrollEl.value.scrollTop = scrollTop - walkY;
 }
 
 function onMouseUp() {
@@ -455,7 +468,14 @@ function onAvatarError(event, profile) {
   transition: all 0.2s;
   z-index: 3;
 }
-.session-card:hover { box-shadow: var(--shadow-md); z-index: 10; transform: scale(1.02); border-color: var(--text-4); }
+.session-card:hover { 
+  box-shadow: var(--shadow-md); 
+  z-index: 10; 
+  border-color: var(--text-4); 
+}
+.session-card:active {
+  cursor: grabbing;
+}
 .session-card.wide  { z-index: 4; }
 .session-card.bookmarked {
   background: linear-gradient(to bottom right, color-mix(in srgb, #f97316 10%, var(--surface)), var(--surface));
