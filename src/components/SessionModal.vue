@@ -13,6 +13,14 @@ function initials(p) {
   return (p?.email?.[0] ?? '?').toUpperCase()
 }
 
+function onAvatarError(event, profile) {
+  if (profile?.gravatar_url && event.target.src !== profile.gravatar_url) {
+    event.target.src = profile.gravatar_url
+  } else {
+    event.target.style.display = 'none'
+  }
+}
+
 const store = useSessionsStore()
 const isBookmarked = computed(() => props.session && store.bookmarkedIds.has(props.session.id))
 
@@ -78,7 +86,12 @@ function onOverlayClick(e) {
           <div class="friends-list">
             <div v-for="(f, i) in friends" :key="i" class="friend-chip">
               <div class="friend-avatar">
-                <img v-if="f?.avatar_url" :src="f.avatar_url" :alt="f?.full_name" />
+                <img
+                  v-if="f?.avatar_url || f?.gravatar_url"
+                  :src="f.avatar_url || f.gravatar_url"
+                  :alt="f?.full_name"
+                  @error="onAvatarError($event, f)"
+                />
                 <span v-else>{{ initials(f) }}</span>
               </div>
               <span class="friend-name">{{ f?.full_name || f?.email }}</span>

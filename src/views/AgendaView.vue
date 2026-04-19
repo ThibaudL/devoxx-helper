@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSessionsStore } from '../stores/sessions'
@@ -31,7 +31,35 @@ const DAYS = [
 onMounted(async () => {
   await Promise.all([store.fetchSessions(), store.fetchBookmarks(), sharing.fetchTeams()])
   await sharing.fetchFriendBookmarks()
+  nowTimer = setInterval(() => { now.value = new Date() }, 60_000)
 })
+onUnmounted(() => clearInterval(nowTimer))
+
+const now = ref(new Date())
+let nowTimer
+
+const showNowPanel = ref(false)
+
+const currentSessions = computed(() => {
+  const t = now.value
+  return store.sessions.filter(s =>
+    !s.is_break && new Date(s.start_time) <= t && new Date(s.end_time) >= t
+  )
+})
+
+const nextSessions = computed(() => {
+  const t = now.value
+  const upcoming = store.sessions
+    .filter(s => !s.is_break && new Date(s.start_time) > t)
+    .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+  if (!upcoming.length) return []
+  const nextTime = upcoming[0].start_time
+  return upcoming.filter(s => s.start_time === nextTime)
+})
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+}
 
 const onlyFriendBookmarked = ref(false)
 
@@ -72,6 +100,81 @@ async function handleSignOut() {
         <button :class="['view-btn', { active: viewMode === 'cards' }]" @click="viewMode = 'cards'">☰ Liste</button>
         <button :class="['view-btn', { active: viewMode === 'timeline' }]" @click="viewMode = 'timeline'">▦ Timeline</button>
       </div>
+      <button :class="['now-btn', { active: showNowPanel }]" @click="showNowPanel = !showNowPanel">
+        <span class="now-dot" />
+        En ce moment
+      </button>
+    </div>
+
+    <div v-if="showNowPanel" class="now-panel">
+      <div v-if="currentSessions.length" class="now-section">
+        <p class="now-label">🔴 En cours</p>
+        <div class="now-list">
+          <div
+            v-for="s in currentSessions" :key="s.id"
+            :class="['now-card',
+              store.bookmarkedIds.has(s.id) && 'now-card--mine',
+              !store.bookmarkedIds.has(s.id) && sharing.getFriendsForSession(s.id).length && 'now-card--team'
+            ]"
+          >
+            <div class="now-card-time">{{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}</div>
+            <div class="now-card-title">{{ s.title }}</div>
+            <div class="now-card-meta">
+              <span v-if="s.room">📍 {{ s.room }}</span>
+              <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
+            </div>
+            <div class="now-card-badges">
+              <span v-if="store.bookmarkedIds.has(s.id)" class="now-badge now-badge--mine">♥ Mon agenda</span>
+              <template v-if="sharing.getFriendsForSession(s.id).length">
+                <span
+                  v-for="(f, i) in sharing.getFriendsForSession(s.id).slice(0, 3)" :key="i"
+                  class="now-badge now-badge--friend"
+                  :title="f?.full_name || f?.email"
+                >{{ (f?.full_name || f?.email || '?').split(' ')[0] }}</span>
+                <span v-if="sharing.getFriendsForSession(s.id).length > 3" class="now-badge now-badge--friend">
+                  +{{ sharing.getFriendsForSession(s.id).length - 3 }}
+                </span>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="nextSessions.length" class="now-section">
+        <p class="now-label">⏭ Prochainement · {{ fmtTime(nextSessions[0].start_time) }}</p>
+        <div class="now-list">
+          <div
+            v-for="s in nextSessions" :key="s.id"
+            :class="['now-card',
+              store.bookmarkedIds.has(s.id) && 'now-card--mine',
+              !store.bookmarkedIds.has(s.id) && sharing.getFriendsForSession(s.id).length && 'now-card--team'
+            ]"
+          >
+            <div class="now-card-title">{{ s.title }}</div>
+            <div class="now-card-meta">
+              <span v-if="s.room">📍 {{ s.room }}</span>
+              <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
+            </div>
+            <div class="now-card-badges">
+              <span v-if="store.bookmarkedIds.has(s.id)" class="now-badge now-badge--mine">♥ Mon agenda</span>
+              <template v-if="sharing.getFriendsForSession(s.id).length">
+                <span
+                  v-for="(f, i) in sharing.getFriendsForSession(s.id).slice(0, 3)" :key="i"
+                  class="now-badge now-badge--friend"
+                  :title="f?.full_name || f?.email"
+                >{{ (f?.full_name || f?.email || '?').split(' ')[0] }}</span>
+                <span v-if="sharing.getFriendsForSession(s.id).length > 3" class="now-badge now-badge--friend">
+                  +{{ sharing.getFriendsForSession(s.id).length - 3 }}
+                </span>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p v-if="!currentSessions.length && !nextSessions.length" class="now-empty">
+        Aucune session à venir.
+      </p>
     </div>
 
     <TimelineView v-if="viewMode === 'timeline'" />
@@ -179,7 +282,7 @@ header {
 .filter-btn.friend-filter { border-color: #3b82f6; color: #3b82f6; }
 .filter-btn.friend-filter.active { background: #3b82f6; border-color: #3b82f6; color: white; }
 
-.toolbar { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.toolbar { display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
 
 .view-toggle {
   display: flex;
@@ -197,6 +300,69 @@ header {
   font-size: 0.85rem;
 }
 .view-btn.active { background: #f97316; color: white; }
+
+.now-btn {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.now-btn:hover { background: var(--surface-subtle); }
+.now-btn.active { border-color: #ef4444; color: #ef4444; }
+.now-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #ef4444; flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.now-panel {
+  max-width: 1100px;
+  margin: 0 auto 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.now-section { display: flex; flex-direction: column; gap: 0.5rem; }
+.now-label { margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.now-list { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.now-card {
+  flex: 1 1 260px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-subtle);
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.now-card-time { font-size: 0.72rem; color: var(--text-4); font-variant-numeric: tabular-nums; }
+.now-card-title { font-size: 0.88rem; font-weight: 600; color: var(--text-1); line-height: 1.3; }
+.now-card-meta { font-size: 0.75rem; color: var(--text-3); }
+.now-card-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.35rem; }
+.now-badge {
+  font-size: 0.68rem; padding: 0.15rem 0.45rem;
+  border-radius: 999px; font-weight: 600;
+}
+.now-badge--mine { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.now-badge--friend { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.now-card--mine {
+  border-color: #f97316;
+  background: color-mix(in srgb, var(--surface-subtle) 85%, #f97316 15%);
+}
+.now-card--team {
+  border-color: #3b82f6;
+  background: color-mix(in srgb, var(--surface-subtle) 85%, #3b82f6 15%);
+}
+.now-empty { margin: 0; font-size: 0.85rem; color: var(--text-4); text-align: center; }
 
 .filters { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem; }
 
@@ -236,6 +402,18 @@ select {
 }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+
+@media (max-width: 640px) {
+  header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .user-info {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    width: 100%;
+  }
+}
 
 .empty { text-align: center; color: var(--text-4); padding: 3rem; }
 </style>

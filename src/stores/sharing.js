@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from './auth'
+import { computeGravatarUrl } from '../utils/avatar'
 
 export const useSharingStore = defineStore('sharing', () => {
   const auth = useAuthStore()
@@ -37,7 +38,10 @@ export const useSharingStore = defineStore('sharing', () => {
         .from('profiles')
         .select('id, email, full_name, avatar_url')
         .in('id', allUserIds)
-      for (const p of profiles ?? []) profileMap.set(p.id, p)
+      await Promise.all((profiles ?? []).map(async p => {
+        p.gravatar_url = await computeGravatarUrl(p.email)
+        profileMap.set(p.id, p)
+      }))
     }
 
     teams.value = (teamRows ?? []).map(t => ({

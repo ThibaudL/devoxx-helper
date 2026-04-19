@@ -177,6 +177,14 @@ const nowTop = computed(() => {
   if (nowMin.value < dayStartMin || nowMin.value > dayEndMin) return null
   return (nowMin.value - dayStartMin) * PX_PER_MIN
 })
+
+function onAvatarError(event, profile) {
+  if (profile?.gravatar_url && event.target.src !== profile.gravatar_url) {
+    event.target.src = profile.gravatar_url
+  } else {
+    event.target.style.display = 'none'
+  }
+}
 </script>
 
 <template>
@@ -307,7 +315,12 @@ const nowTop = computed(() => {
                     class="friend-avatar"
                     :title="f?.full_name || f?.email"
                   >
-                    <img v-if="f?.avatar_url" :src="f.avatar_url" :alt="f?.full_name" />
+                    <img
+                      v-if="f?.avatar_url || f?.gravatar_url"
+                      :src="f.avatar_url || f.gravatar_url"
+                      :alt="f?.full_name"
+                      @error="onAvatarError($event, f)"
+                    />
                     <span v-else>{{ (f?.full_name || f?.email || '?')[0].toUpperCase() }}</span>
                   </div>
                   <span v-if="sharing.getFriendsForSession(s.id).length > 3" class="friend-overflow">+{{ sharing.getFriendsForSession(s.id).length - 3 }}</span>
