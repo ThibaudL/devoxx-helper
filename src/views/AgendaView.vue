@@ -7,6 +7,7 @@ import { useSharingStore } from '../stores/sharing'
 import { useDarkMode } from '../composables/useDarkMode'
 import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
+import PlanModal from '../components/PlanModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
@@ -14,6 +15,7 @@ const store = useSessionsStore()
 const sharing = useSharingStore()
 const router = useRouter()
 const showShareModal = ref(false)
+const showPlanModal = ref(false)
 const { dark, toggle: toggleDark } = useDarkMode()
 
 const search = ref('')
@@ -89,6 +91,7 @@ async function handleSignOut() {
         <img v-if="auth.user?.user_metadata?.avatar_url" :src="auth.user.user_metadata.avatar_url" alt="avatar" />
         <span>{{ auth.user?.user_metadata?.full_name }}</span>
         <RouterLink to="/import" class="import-link">⬇ Importer</RouterLink>
+        <button class="plan-btn" @click="showPlanModal = true">🗺 Plan</button>
         <button class="share-btn" @click="showShareModal = true">👥 Partager</button>
         <button class="theme-btn" @click="toggleDark" :title="dark ? 'Mode clair' : 'Mode sombre'">{{ dark ? '☀' : '☾' }}</button>
         <button @click="handleSignOut">Déconnexion</button>
@@ -216,6 +219,7 @@ async function handleSignOut() {
   </div>
 
   <ShareModal v-if="showShareModal" @close="showShareModal = false" />
+  <PlanModal v-if="showPlanModal" @close="showPlanModal = false" />
 </template>
 
 <style scoped>
@@ -267,6 +271,17 @@ header {
   font-size: 0.85rem;
 }
 .import-link:hover { background: var(--surface-subtle); }
+
+.plan-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #6366f1;
+  border-radius: 6px;
+  color: #6366f1;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.plan-btn:hover { background: var(--surface-subtle); }
 
 .share-btn {
   padding: 0.3rem 0.7rem;
