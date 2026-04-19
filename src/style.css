@@ -50,8 +50,43 @@
   }
 }
 
+/* ── App design tokens ─────────────────────────────────────── */
+:root {
+  --surface:       #ffffff;
+  --surface-raised:#f9fafb;
+  --surface-subtle:#f3f4f6;
+  --border:        #e5e7eb;
+  --border-faint:  #f3f4f6;
+  --text-1:        #111827;
+  --text-2:        #374151;
+  --text-3:        #6b7280;
+  --text-4:        #9ca3af;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg:     0 20px 60px rgba(0,0,0,0.2);
+}
+
+html.dark {
+  color-scheme: dark;
+  --surface:       #1f2937;
+  --surface-raised:#111827;
+  --surface-subtle:#374151;
+  --border:        #374151;
+  --border-faint:  #1f2937;
+  --text-1:        #f9fafb;
+  --text-2:        #e5e7eb;
+  --text-3:        #9ca3af;
+  --text-4:        #6b7280;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:     0 20px 60px rgba(0,0,0,0.7);
+}
+/* ─────────────────────────────────────────────────────────── */
+
 body {
   margin: 0;
+  background: var(--surface-raised);
+  color: var(--text-2);
 }
 
 h1,

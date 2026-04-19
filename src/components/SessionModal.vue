@@ -4,8 +4,14 @@ import { useSessionsStore } from '../stores/sessions'
 
 const props = defineProps({
   session: { type: Object, default: null },
+  friends: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['close'])
+
+function initials(p) {
+  if (p?.full_name) return p.full_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return (p?.email?.[0] ?? '?').toUpperCase()
+}
 
 const store = useSessionsStore()
 const isBookmarked = computed(() => props.session && store.bookmarkedIds.has(props.session.id))
@@ -66,6 +72,20 @@ function onOverlayClick(e) {
           v-html="session.description"
         />
 
+        <!-- team members who bookmarked this -->
+        <div v-if="friends.length" class="friends-section">
+          <p class="friends-label">Dans l'agenda de</p>
+          <div class="friends-list">
+            <div v-for="(f, i) in friends" :key="i" class="friend-chip">
+              <div class="friend-avatar">
+                <img v-if="f?.avatar_url" :src="f.avatar_url" :alt="f?.full_name" />
+                <span v-else>{{ initials(f) }}</span>
+              </div>
+              <span class="friend-name">{{ f?.full_name || f?.email }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- footer -->
         <div class="modal-footer">
           <button
@@ -83,140 +103,88 @@ function onOverlayClick(e) {
 
 <style scoped>
 .overlay {
-  position: fixed;
-  inset: 0;
+  position: fixed; inset: 0;
   background: rgba(0,0,0,0.5);
   z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   padding: 1rem;
 }
 
 .modal {
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
-  width: 100%;
-  max-width: 640px;
-  max-height: 90vh;
+  width: 100%; max-width: 640px; max-height: 90vh;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  display: flex; flex-direction: column; gap: 1.25rem;
   padding: 1.75rem;
   position: relative;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  box-shadow: var(--shadow-lg);
 }
 
 .close-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+  position: absolute; top: 1rem; right: 1rem;
   border: none;
-  background: #f3f4f6;
+  background: var(--surface-subtle);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 28px; height: 28px;
+  cursor: pointer; font-size: 0.8rem;
+  color: var(--text-3);
+  display: flex; align-items: center; justify-content: center;
 }
-
-.close-btn:hover { background: #e5e7eb; }
+.close-btn:hover { background: var(--border); }
 
 .modal-header { display: flex; flex-direction: column; gap: 0.6rem; }
-
 .badges { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
-.badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
+.badge { font-size: 0.68rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
 .badge.format { background: #dbeafe; color: #1d4ed8; }
 .badge.track  { background: #d1fae5; color: #065f46; }
 .badge.level  { background: #fef9c3; color: #92400e; }
-.badge.lang   { background: #f3f4f6; color: #374151; }
+.badge.lang   { background: var(--surface-subtle); color: var(--text-2); }
 
-h2 {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #111827;
-  line-height: 1.3;
-  margin: 0;
-}
-
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  font-size: 0.82rem;
-  color: #6b7280;
-}
+h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-1); line-height: 1.3; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.82rem; color: var(--text-3); }
 
 .speakers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  border-top: 1px solid #f3f4f6;
-  padding-top: 1rem;
+  display: flex; flex-wrap: wrap; gap: 0.75rem;
+  border-top: 1px solid var(--border-faint); padding-top: 1rem;
 }
-
-.speaker {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.speaker-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.speaker-name {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #111827;
-}
+.speaker { display: flex; align-items: center; gap: 0.5rem; }
+.speaker-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.speaker-name { font-size: 0.88rem; font-weight: 600; color: var(--text-1); }
 
 .description {
-  font-size: 0.88rem;
-  line-height: 1.6;
-  color: #374151;
-  border-top: 1px solid #f3f4f6;
-  padding-top: 1rem;
+  font-size: 0.88rem; line-height: 1.6; color: var(--text-2);
+  border-top: 1px solid var(--border-faint); padding-top: 1rem;
 }
-
 .description :deep(ul) { padding-left: 1.2rem; margin: 0.5rem 0; }
 .description :deep(li) { margin-bottom: 0.25rem; }
-.description :deep(strong) { color: #111827; }
+.description :deep(strong) { color: var(--text-1); }
 
-.modal-footer {
-  border-top: 1px solid #f3f4f6;
-  padding-top: 1rem;
+.friends-section { border-top: 1px solid var(--border-faint); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.friends-label { font-size: 0.72rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+.friends-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.friend-chip { display: flex; align-items: center; gap: 0.4rem; background: var(--surface-subtle); border-radius: 999px; padding: 3px 10px 3px 3px; }
+.friend-avatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #dbeafe; color: #1d4ed8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 700; overflow: hidden; flex-shrink: 0;
 }
+.friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.friend-name { font-size: 0.78rem; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+
+.modal-footer { border-top: 1px solid var(--border-faint); padding-top: 1rem; }
 
 .bookmark-btn {
   padding: 0.6rem 1.4rem;
   border-radius: 8px;
   border: 2px solid #f97316;
-  background: white;
+  background: var(--surface);
   color: #f97316;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.9rem; font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
-
-.bookmark-btn.active {
-  background: #f97316;
-  color: white;
-}
+.bookmark-btn.active { background: #f97316; color: white; }
 </style>

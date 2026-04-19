@@ -20,18 +20,18 @@ const auth = useAuthStore()
   justify-content: center;
   height: 100vh;
   gap: 1rem;
+  background: var(--surface-raised);
+  color: var(--text-1);
 }
 
 button {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   cursor: pointer;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--surface);
+  color: var(--text-2);
 }
-
-button:hover {
-  background: #f5f5f5;
-}
+button:hover { background: var(--surface-subtle); }
 </style>

@@ -1,9 +1,12 @@
 <script setup>
 import {computed, onUnmounted, ref} from 'vue'
 import {useSessionsStore} from '../stores/sessions'
+import {useSharingStore} from '../stores/sharing'
+import {LEVEL_STYLE} from '../utils/sessionTags'
 import SessionModal from '../components/SessionModal.vue'
 
 const store = useSessionsStore()
+const sharing = useSharingStore()
 
 const PX_PER_MIN = 5
 const CARD_WIDTH = 230
@@ -73,11 +76,6 @@ function fmt(iso) {
   return new Date(iso).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'})
 }
 
-const LEVEL_STYLE = {
-  BEGINNER: {bg: '#dcfce7', color: '#166534'},
-  INTERMEDIATE: {bg: '#fef3c7', color: '#92400e'},
-  ADVANCED: {bg: '#fee2e2', color: '#991b1b'},
-}
 
 const dayData = computed(() => {
   const sessions = store.sessions.filter(s => s.day === activeDay.value && s.room)
@@ -281,25 +279,39 @@ const nowTop = computed(() => {
               <!-- speakers -->
               <p v-if="s.speakers.length" class="card-speakers">{{ s.speakers.join(', ') }}</p>
 
-              <!-- track + level -->
+              <!-- track, level, language -->
               <div class="card-tags">
                 <span v-if="s.track" class="track-tag">{{ s.track }}</span>
+              </div>
+              <div class="card-badges">
                 <span
                     v-if="s.audience_level"
                     class="level-tag"
                     :style="{
-                    background: (LEVEL_STYLE[s.audience_level] ?? {}).bg ?? '#f3f4f6',
-                    color:      (LEVEL_STYLE[s.audience_level] ?? {}).color ?? '#374151',
-                  }"
+                      background: (LEVEL_STYLE[s.audience_level] ?? {}).bg,
+                      color:      (LEVEL_STYLE[s.audience_level] ?? {}).color,
+                    }"
                 >{{ s.audience_level }}</span>
+                <span v-if="s.language" class="lang-tag">{{ s.language }}</span>
               </div>
 
-              <!-- footer: bookmark + count + room -->
+              <!-- footer: bookmark + friends + room -->
               <div class="card-footer">
                 <button class="heart-btn" @click.stop="store.toggleBookmark(s.id)">
                   <span>{{ store.bookmarkedIds.has(s.id) ? '♥' : '♡' }}</span>
                   <span v-if="s.total_favourites" class="fav-count">{{ s.total_favourites }}</span>
                 </button>
+                <div v-if="sharing.getFriendsForSession(s.id).length" class="friend-avatars">
+                  <div
+                    v-for="(f, i) in sharing.getFriendsForSession(s.id).slice(0, 3)" :key="i"
+                    class="friend-avatar"
+                    :title="f?.full_name || f?.email"
+                  >
+                    <img v-if="f?.avatar_url" :src="f.avatar_url" :alt="f?.full_name" />
+                    <span v-else>{{ (f?.full_name || f?.email || '?')[0].toUpperCase() }}</span>
+                  </div>
+                  <span v-if="sharing.getFriendsForSession(s.id).length > 3" class="friend-overflow">+{{ sharing.getFriendsForSession(s.id).length - 3 }}</span>
+                </div>
                 <span class="room-tag">📍 {{ s.span > 1 ? `${s.span} salles` : s.room }}</span>
                 <span v-if="dayData.conflictIds.has(s.id)" class="conflict-dot" title="Conflit dans ton agenda"/>
               </div>
@@ -309,361 +321,170 @@ const nowTop = computed(() => {
       </div>
     </div>
 
-    <SessionModal :session="selectedSession" @close="selectedSession = null"/>
+    <SessionModal :session="selectedSession" :friends="selectedSession ? sharing.getFriendsForSession(selectedSession.id) : []" @close="selectedSession = null"/>
   </div>
 </template>
 
 <style scoped>
-.timeline-root {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
+.timeline-root { display: flex; flex-direction: column; height: 100%; }
 
-/* nav */
 .nav-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: flex; align-items: center; gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  background: white;
-  position: sticky;
-  top: 0;
-  z-index: 30;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 30;
 }
 
-.day-tabs {
-  display: flex;
-  gap: 0.4rem;
-}
+.day-tabs { display: flex; gap: 0.4rem; }
 
 .day-tab {
   padding: 0.4rem 1rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  color: #374151;
+  background: var(--surface);
+  font-size: 0.85rem; font-weight: 500;
+  cursor: pointer; color: var(--text-2);
 }
+.day-tab.active { background: #3b82f6; border-color: #3b82f6; color: white; }
 
-.day-tab.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-}
-
-.nav-arrows {
-  display: flex;
-  gap: 0.25rem;
-  margin-left: 0.25rem;
-}
+.nav-arrows { display: flex; gap: 0.25rem; margin-left: 0.25rem; }
 
 .arrow-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #d1d5db;
+  width: 32px; height: 32px;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #3b82f6;
-  color: white;
-  font-size: 1.1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #3b82f6; color: white;
+  font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
 }
+.arrow-btn:disabled { background: var(--surface-subtle); color: var(--text-4); cursor: default; }
 
-.arrow-btn:disabled {
-  background: #e5e7eb;
-  color: #9ca3af;
-  cursor: default;
-}
+.scroll-outer { flex: 1; overflow-x: auto; overflow-y: auto; cursor: grab; }
+.grid-root { min-width: max-content; }
 
-/* scroll */
-.scroll-outer {
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
-  cursor: grab;
-}
-
-.grid-root {
-  min-width: max-content;
-}
-
-/* sticky room headers */
 .header-row {
   display: flex;
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: white;
-  border-bottom: 2px solid #e5e7eb;
+  position: sticky; top: 0; z-index: 20;
+  background: var(--surface);
+  border-bottom: 2px solid var(--border);
 }
-
-.time-gutter-header {
-  flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
-}
-
+.time-gutter-header { flex-shrink: 0; border-right: 1px solid var(--border); }
 .room-header {
-  flex-shrink: 0;
-  padding: 0.5rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #6b7280;
-  text-align: center;
-  border-right: 1px solid #f3f4f6;
+  flex-shrink: 0; padding: 0.5rem;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-3);
+  text-align: center; border-right: 1px solid var(--border-faint);
   box-sizing: border-box;
 }
 
-/* body */
-.body-row {
-  display: flex;
-}
-
-.time-gutter {
-  position: relative;
-  flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
-}
-
+.body-row { display: flex; }
+.time-gutter { position: relative; flex-shrink: 0; border-right: 1px solid var(--border); }
 .time-label {
-  position: absolute;
-  right: 6px;
-  font-size: 0.68rem;
-  color: #9ca3af;
-  transform: translateY(-50%);
-  white-space: nowrap;
+  position: absolute; right: 6px;
+  font-size: 0.68rem; color: var(--text-4);
+  transform: translateY(-50%); white-space: nowrap;
 }
 
-.session-area {
-  position: relative;
-}
+.session-area { position: relative; }
+.slot-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--border-faint); pointer-events: none; }
+.col-line  { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border-faint); pointer-events: none; }
 
-.slot-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #f3f4f6;
-  pointer-events: none;
-}
-
-.col-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: #f3f4f6;
-  pointer-events: none;
-}
-
-/* break banner */
 .break-banner {
-  position: absolute;
-  left: 0;
-  background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  pointer-events: none;
-  z-index: 1;
+  position: absolute; left: 0;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 600; color: var(--text-4);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  pointer-events: none; z-index: 1;
 }
 
-/* session card */
 .session-card {
   position: absolute;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--surface);
   padding: 6px 8px 6px 12px;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  overflow: hidden;
-  box-sizing: border-box;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex; flex-direction: column; gap: 3px;
+  overflow: hidden; box-sizing: border-box;
+  box-shadow: var(--shadow-sm);
   transition: box-shadow 0.15s;
   z-index: 3;
 }
+.session-card:hover { box-shadow: var(--shadow-md); z-index: 6; }
+.session-card.wide  { z-index: 4; box-shadow: var(--shadow-sm); }
+.session-card.bookmarked { background: color-mix(in srgb, #3b82f6 10%, var(--surface)); border-color: #93c5fd; }
+.session-card.conflict   { border-color: #f87171; border-width: 2px; }
 
-.session-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  z-index: 6;
-}
-
-.session-card.wide {
-  z-index: 4;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.session-card.bookmarked {
-  background: #eff6ff;
-  border-color: #93c5fd;
-}
-
-.session-card.conflict {
-  border-color: #db7e7e;
-  border-width: 2px;
-}
-
-/* left accent bar */
 .accent-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  border-radius: 8px 0 0 8px;
-  background: var(--format-color, #e5e7eb);
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; border-radius: 8px 0 0 8px;
+  background: var(--format-color, var(--border));
 }
 
-.card-top {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.card-time {
-  font-size: 0.65rem;
-  color: #6b7280;
-  white-space: nowrap;
-}
+.card-top { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.card-time { font-size: 0.65rem; color: var(--text-3); white-space: nowrap; }
 
 .format-badge {
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 4px;
-  color: rgba(0, 0, 0, 0.65);
-  white-space: nowrap;
+  font-size: 0.6rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 4px;
+  color: rgba(0,0,0,0.65); white-space: nowrap;
 }
 
 .card-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.25;
-  margin: 0;
+  font-size: 0.82rem; font-weight: 700;
+  line-height: 1.25; margin: 0;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  color: #111827;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  color: var(--text-1);
 }
 
-.card-speakers {
-  font-size: 0.7rem;
-  color: #6b7280;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.card-speakers { font-size: 0.7rem; color: var(--text-3); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  margin-top: auto;
-}
+.card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
 
 .track-tag {
-  font-size: 0.58rem;
-  color: #374151;
-  background: #f3f4f6;
-  padding: 1px 5px;
-  border-radius: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
+  font-size: 0.58rem; color: var(--text-2);
+  background: var(--surface-subtle);
+  padding: 1px 5px; border-radius: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;
 }
 
-.level-tag {
-  font-size: 0.58rem;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
+.card-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+.level-tag { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; text-transform: uppercase; }
+.lang-tag  { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; white-space: nowrap; background: #e0f2fe; color: #0369a1; text-transform: uppercase; }
 
-.card-footer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 2px;
-}
+.card-footer { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
 
 .heart-btn {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 0.78rem;
-  color: #9ca3af;
-  padding: 0;
+  display: flex; align-items: center; gap: 3px;
+  border: none; background: none; cursor: pointer;
+  font-size: 0.78rem; color: var(--text-4); padding: 0;
 }
+.session-card.bookmarked .heart-btn { color: #f97316; }
+.fav-count { font-size: 0.68rem; }
 
-.session-card.bookmarked .heart-btn {
-  color: #f97316;
+.friend-avatars { display: flex; align-items: center; margin-left: 2px; }
+.friend-avatar {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #dbeafe; color: #1d4ed8;
+  border: 1.5px solid var(--surface);
+  margin-left: -4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.45rem; font-weight: 700;
+  overflow: hidden; flex-shrink: 0;
 }
+.friend-avatar:first-child { margin-left: 0; }
+.friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.friend-overflow { font-size: 0.55rem; color: var(--text-4); margin-left: 2px; }
 
-.fav-count {
-  font-size: 0.68rem;
-}
+.room-tag { font-size: 0.65rem; color: var(--text-4); margin-left: auto; white-space: nowrap; }
 
-.room-tag {
-  font-size: 0.65rem;
-  color: #9ca3af;
-  margin-left: auto;
-  white-space: nowrap;
-}
+.conflict-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
 
-.conflict-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  flex-shrink: 0;
-}
+.empty { text-align: center; color: var(--text-4); padding: 3rem; }
 
-.empty {
-  text-align: center;
-  color: #9ca3af;
-  padding: 3rem;
-}
-
-.now-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #ef4444;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.now-dot {
-  position: absolute;
-  left: -5px;
-  top: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ef4444;
-}
+.now-line { position: absolute; left: 0; right: 0; height: 2px; background: #ef4444; pointer-events: none; z-index: 5; }
+.now-dot  { position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; }
 </style>

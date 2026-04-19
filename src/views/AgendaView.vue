@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSessionsStore } from '../stores/sessions'
 import { useSharingStore } from '../stores/sharing'
+import { useDarkMode } from '../composables/useDarkMode'
 import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
 import TimelineView from './TimelineView.vue'
@@ -13,6 +14,7 @@ const store = useSessionsStore()
 const sharing = useSharingStore()
 const router = useRouter()
 const showShareModal = ref(false)
+const { dark, toggle: toggleDark } = useDarkMode()
 
 const search = ref('')
 const selectedDay = ref('')
@@ -60,6 +62,7 @@ async function handleSignOut() {
         <span>{{ auth.user?.user_metadata?.full_name }}</span>
         <RouterLink to="/import" class="import-link">⬇ Importer</RouterLink>
         <button class="share-btn" @click="showShareModal = true">👥 Partager</button>
+        <button class="theme-btn" @click="toggleDark" :title="dark ? 'Mode clair' : 'Mode sombre'">{{ dark ? '☀' : '☾' }}</button>
         <button @click="handleSignOut">Déconnexion</button>
       </div>
     </header>
@@ -113,15 +116,9 @@ async function handleSignOut() {
 </template>
 
 <style scoped>
-.layout {
-  padding: 1rem;
-}
+.layout { padding: 1rem; }
 
-header,
-.toolbar,
-.filters,
-.grid,
-.empty {
+header, .toolbar, .filters, .grid, .empty {
   max-width: 1100px;
   margin-left: auto;
   margin-right: auto;
@@ -132,7 +129,7 @@ header {
   justify-content: space-between;
   align-items: center;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 1rem;
 }
 
@@ -143,20 +140,20 @@ header {
   font-size: 0.9rem;
 }
 
-.user-info img {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-}
+.user-info img { width: 30px; height: 30px; border-radius: 50%; }
 
 .user-info button {
   padding: 0.3rem 0.7rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--surface);
+  color: var(--text-2);
   cursor: pointer;
   font-size: 0.85rem;
 }
+.user-info button:hover { background: var(--surface-subtle); }
+
+.theme-btn { font-size: 1rem !important; padding: 0.2rem 0.5rem !important; }
 
 .import-link {
   padding: 0.3rem 0.7rem;
@@ -166,32 +163,27 @@ header {
   text-decoration: none;
   font-size: 0.85rem;
 }
-
-.import-link:hover { background: #fff7ed; }
+.import-link:hover { background: var(--surface-subtle); }
 
 .share-btn {
   padding: 0.3rem 0.7rem;
   border: 1px solid #3b82f6;
   border-radius: 6px;
   color: #3b82f6;
-  background: white;
+  background: var(--surface);
   cursor: pointer;
   font-size: 0.85rem;
 }
-.share-btn:hover { background: #eff6ff; }
+.share-btn:hover { background: var(--surface-subtle); }
 
-.filter-btn.friend-filter { border-color: #3b82f6; color: #1d4ed8; }
+.filter-btn.friend-filter { border-color: #3b82f6; color: #3b82f6; }
 .filter-btn.friend-filter.active { background: #3b82f6; border-color: #3b82f6; color: white; }
 
-.toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1rem;
-}
+.toolbar { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
 
 .view-toggle {
   display: flex;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -199,72 +191,51 @@ header {
 .view-btn {
   padding: 0.4rem 1rem;
   border: none;
-  background: white;
+  background: var(--surface);
+  color: var(--text-2);
   cursor: pointer;
   font-size: 0.85rem;
 }
+.view-btn.active { background: #f97316; color: white; }
 
-.view-btn.active {
-  background: #f97316;
-  color: white;
-}
-
-.filters {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 1.5rem;
-}
+.filters { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem; }
 
 .search {
   width: 100%;
   padding: 0.6rem 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.95rem;
   box-sizing: border-box;
+  background: var(--surface);
+  color: var(--text-1);
 }
+.search:focus { outline: none; border-color: #3b82f6; }
 
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-}
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 
 .filter-btn {
   padding: 0.35rem 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: white;
+  background: var(--surface);
+  color: var(--text-2);
   cursor: pointer;
   font-size: 0.85rem;
 }
-
-.filter-btn.active {
-  background: #f97316;
-  border-color: #f97316;
-  color: white;
-}
+.filter-btn.active { background: #f97316; border-color: #f97316; color: white; }
 
 select {
   padding: 0.35rem 0.7rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 0.85rem;
-  background: white;
+  background: var(--surface);
+  color: var(--text-2);
   cursor: pointer;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-}
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
 
-.empty {
-  text-align: center;
-  color: #999;
-  padding: 3rem;
-}
+.empty { text-align: center; color: var(--text-4); padding: 3rem; }
 </style>
