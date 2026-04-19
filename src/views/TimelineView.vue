@@ -8,8 +8,8 @@ import SessionModal from '../components/SessionModal.vue'
 const store = useSessionsStore()
 const sharing = useSharingStore()
 
-const PX_PER_MIN = 7
-const LUNCH_PX_PER_MIN = 12
+const PX_PER_MIN = 8
+const LUNCH_PX_PER_MIN = 14
 const CARD_WIDTH = 240
 
 const DAYS = [
