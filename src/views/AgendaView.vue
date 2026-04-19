@@ -9,6 +9,7 @@ import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
 import PlanModal from '../components/PlanModal.vue'
 import KeywordFilterModal from '../components/KeywordFilterModal.vue'
+import ProfileModal from '../components/ProfileModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
@@ -138,6 +139,11 @@ async function handleSignOut() {
             <RouterLink to="/import" class="btn btn-secondary btn-icon" title="Importer">
               <span>⬇</span> <span class="btn-text">Importer</span>
             </RouterLink>
+            <button
+              class="btn btn-secondary btn-icon"
+              @click="showProfileModal = true"
+              title="Analyser mon profil"
+            ><span>🧠</span> <span class="btn-text">Mon profil</span></button>
             <button class="btn btn-secondary btn-icon" @click="showPlanModal = true" title="Plan">
               <span>🗺</span> <span class="btn-text">Plan</span>
             </button>
@@ -316,6 +322,11 @@ async function handleSignOut() {
     @toggle="toggleKeyword"
     @reset="selectedKeywords = new Set()"
     @close="showKeywordModal = false"
+  />
+  <ProfileModal
+    v-if="showProfileModal"
+    :keywords="bookmarkedKeywordsForProfile"
+    @close="showProfileModal = false"
   />
 </template>
 

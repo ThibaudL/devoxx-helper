@@ -1,69 +1,57 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = defineProps({
   keywords: { type: Array, required: true },
 })
 const emit = defineEmits(['close'])
 
-const profile = ref('')
-const loading = ref(true)
-const error = ref('')
+const copied = ref(false)
 
-onMounted(async () => {
-  try {
-    const res = await fetch('/api/analyze-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keywords: props.keywords }),
-    })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
-    profile.value = data.profile
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    loading.value = false
-  }
-})
+const prompt = computed(() =>
+  `Voici les mots-clés des conférences que j'ai mis en favori à Devoxx France 2026 :
+
+${props.keywords.join(', ')}
+
+En te basant uniquement sur ces mots-clés, dresse un portrait de moi en tant que développeur : mon profil probable (rôle, spécialité), mes centres d'intérêt techniques, mon niveau d'expertise supposé, et ce que je cherche probablement à apprendre ou consolider. Sois direct et utilise des sections courtes.`
+)
+
+async function copy() {
+  await navigator.clipboard.writeText(prompt.value)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
 
 function onOverlayClick(e) {
   if (e.target === e.currentTarget) emit('close')
-}
-
-// Very simple markdown-like rendering: bold **text** and line breaks
-function renderProfile(text) {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
 }
 </script>
 
 <template>
   <Teleport to="body">
     <div class="overlay" @click="onOverlayClick">
-      <div class="modal" role="dialog" aria-label="Analyse de profil">
+      <div class="modal" role="dialog" aria-label="Prompt profil développeur">
         <div class="modal-header">
           <span class="modal-title">🧠 Mon profil développeur</span>
           <button class="close-btn" @click="emit('close')">✕</button>
         </div>
 
-        <div class="keywords-used">
-          <span class="kw-label">Basé sur {{ keywords.length }} mots-clés :</span>
-          <div class="kw-list">
-            <span v-for="kw in keywords" :key="kw" class="kw-chip">{{ kw }}</span>
-          </div>
-        </div>
-
         <div class="body">
-          <div v-if="loading" class="loading">
-            <div class="spinner" />
-            <span>Analyse en cours…</span>
-          </div>
-          <div v-else-if="error" class="error">
-            ⚠️ {{ error }}
-          </div>
-          <div v-else class="profile-text" v-html="renderProfile(profile)" />
+          <template v-if="keywords.length">
+            <p class="instructions">
+              Copiez ce prompt et collez-le dans le LLM de votre choix
+              (ChatGPT, Claude, Gemini…)
+            </p>
+            <div class="prompt-box">
+              <pre class="prompt-text">{{ prompt }}</pre>
+            </div>
+            <button :class="['copy-btn', { copied }]" @click="copy">
+              {{ copied ? '✓ Copié !' : 'Copier le prompt' }}
+            </button>
+          </template>
+          <p v-else class="empty">
+            Ajoutez des sessions à votre agenda pour générer votre profil.
+          </p>
         </div>
       </div>
     </div>
@@ -82,7 +70,7 @@ function renderProfile(text) {
 .modal {
   background: var(--surface);
   border-radius: var(--radius-lg);
-  width: 100%; max-width: 600px; max-height: 85vh;
+  width: 100%; max-width: 580px; max-height: 85vh;
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
@@ -94,47 +82,51 @@ function renderProfile(text) {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-
 .modal-title { font-size: 1rem; font-weight: 700; color: var(--text-1); }
-
 .close-btn {
   border: none; background: none; cursor: pointer;
   font-size: 1rem; color: var(--text-3); padding: 0.2rem;
 }
 .close-btn:hover { color: var(--text-1); }
 
-.keywords-used {
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--border-faint);
-  flex-shrink: 0;
-}
-.kw-label { font-size: 0.72rem; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 0.5rem; }
-.kw-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.kw-chip {
-  font-size: 0.72rem; padding: 0.15rem 0.6rem; border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent); font-weight: 500;
+.body {
+  flex: 1; overflow-y: auto;
+  padding: 1.25rem;
+  display: flex; flex-direction: column; gap: 1rem;
 }
 
-.body { flex: 1; overflow-y: auto; padding: 1.25rem; }
-
-.loading {
-  display: flex; flex-direction: column; align-items: center; gap: 1rem;
-  padding: 2rem; color: var(--text-3); font-size: 0.9rem;
+.instructions {
+  font-size: 0.85rem; color: var(--text-3); margin: 0;
 }
 
-.spinner {
-  width: 32px; height: 32px; border-radius: 50%;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
+.prompt-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: 340px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-.error { color: #ef4444; font-size: 0.9rem; }
-
-.profile-text {
-  font-size: 0.9rem; line-height: 1.7; color: var(--text-2);
+.prompt-text {
+  font-family: inherit;
+  font-size: 0.85rem; line-height: 1.6;
+  color: var(--text-2);
+  white-space: pre-wrap; word-break: break-word;
+  margin: 0;
 }
-.profile-text :deep(strong) { color: var(--text-1); font-weight: 700; }
+
+.copy-btn {
+  align-self: flex-end;
+  padding: 0.55rem 1.4rem;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent); color: white;
+  font-size: 0.9rem; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.copy-btn:hover { filter: brightness(1.1); }
+.copy-btn.copied { background: #16a34a; }
+.empty { font-size: 0.88rem; color: var(--text-3); text-align: center; padding: 2rem 0; margin: 0; }
 </style>
