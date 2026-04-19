@@ -684,7 +684,6 @@ header {
 }
 
 .search {
-  width: 100%;
   padding: 0.75rem 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
