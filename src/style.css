@@ -288,3 +288,8 @@ code {
     border-right-color: var(--border);
   }
 }
+
+p.card-title {
+  min-height: 50px;
+}
+
