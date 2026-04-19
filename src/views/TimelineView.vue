@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { useSessionsStore } from '../stores/sessions'
 import SessionModal from '../components/SessionModal.vue'
 
@@ -34,7 +34,14 @@ function onMouseMove(e) {
 }
 function onMouseUp() { isDragging = false; if (scrollEl.value) { scrollEl.value.style.cursor = 'grab'; scrollEl.value.style.userSelect = '' } }
 
-function toMin(iso) { const d = new Date(iso); return d.getUTCHours() * 60 + d.getUTCMinutes() }
+function toMin(iso) {
+  const parts = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris', hour12: false }).formatToParts(new Date(iso))
+  return parseInt(parts.find(p => p.type === 'hour').value) * 60 + parseInt(parts.find(p => p.type === 'minute').value)
+}
+
+const nowMin = ref(toMin(new Date().toISOString()))
+const nowTimer = setInterval(() => { nowMin.value = toMin(new Date().toISOString()) }, 60_000)
+onUnmounted(() => clearInterval(nowTimer))
 function fmt(iso) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 }
@@ -119,10 +126,17 @@ const dayData = computed(() => {
     if (!seenBreaks.has(s.start_time)) { seenBreaks.set(s.start_time, s); breakBanners.push(s) }
   }
 
-  return { rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners }
+  return { rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin }
 })
 
 const totalWidth = computed(() => dayData.value ? TIME_WIDTH + dayData.value.rooms.length * CARD_WIDTH : 0)
+
+const nowTop = computed(() => {
+  if (!dayData.value) return null
+  const { dayStartMin, dayEndMin } = dayData.value
+  if (nowMin.value < dayStartMin || nowMin.value > dayEndMin) return null
+  return (nowMin.value - dayStartMin) * PX_PER_MIN
+})
 </script>
 
 <template>
@@ -185,6 +199,11 @@ const totalWidth = computed(() => dayData.value ? TIME_WIDTH + dayData.value.roo
               :style="{ top: b.top + 'px', height: b.height + 'px', width: (dayData.rooms.length * CARD_WIDTH) + 'px' }"
             >
               {{ b.title }} · {{ fmt(b.start_time) }} – {{ fmt(b.end_time) }}
+            </div>
+
+            <!-- current time indicator -->
+            <div v-if="nowTop !== null" class="now-line" :style="{ top: nowTop + 'px' }">
+              <div class="now-dot" />
             </div>
 
             <!-- session cards -->
@@ -427,4 +446,15 @@ const totalWidth = computed(() => dayData.value ? TIME_WIDTH + dayData.value.roo
 }
 
 .empty { text-align: center; color: #9ca3af; padding: 3rem; }
+
+.now-line {
+  position: absolute; left: 0; right: 0;
+  height: 2px; background: #ef4444;
+  pointer-events: none; z-index: 5;
+}
+.now-dot {
+  position: absolute; left: -5px; top: -4px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #ef4444;
+}
 </style>
