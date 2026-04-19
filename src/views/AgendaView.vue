@@ -8,6 +8,8 @@ import { useDarkMode } from '../composables/useDarkMode'
 import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
 import PlanModal from '../components/PlanModal.vue'
+import KeywordFilterModal from '../components/KeywordFilterModal.vue'
+import ProfileModal from '../components/ProfileModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
@@ -21,6 +23,19 @@ const { dark, toggle: toggleDark } = useDarkMode()
 const search = ref('')
 const selectedDay = ref('')
 const selectedTrack = ref('')
+const selectedKeywords = ref(new Set())
+const showKeywordModal = ref(false)
+const showProfileModal = ref(false)
+
+const bookmarkedKeywordsForProfile = computed(() =>
+  [...new Set(store.sessions.filter(s => store.bookmarkedIds.has(s.id)).flatMap(s => s.keywords ?? []))]
+)
+
+function toggleKeyword(kw) {
+  const s = new Set(selectedKeywords.value)
+  s.has(kw) ? s.delete(kw) : s.add(kw)
+  selectedKeywords.value = s
+}
 const onlyBookmarked = ref(false)
 const viewMode = ref('cards')
 
@@ -65,16 +80,44 @@ function fmtTime(iso) {
 
 const onlyFriendBookmarked = ref(false)
 
+const allKeywords = computed(() =>
+  [...new Set(store.sessions.flatMap(s => s.keywords ?? []))].sort()
+)
+
+const bookmarkedKeywords = computed(() =>
+  new Set(store.sessions.filter(s => store.bookmarkedIds.has(s.id)).flatMap(s => s.keywords ?? []))
+)
+
 const filtered = computed(() => {
   const q = search.value.toLowerCase()
+
+  // Build room list per group_key from all sessions
+  const groupRooms = new Map()
+  for (const s of store.sessions) {
+    if (s.group_key && s.room) {
+      if (!groupRooms.has(s.group_key)) groupRooms.set(s.group_key, [])
+      groupRooms.get(s.group_key).push(s.room)
+    }
+  }
+
+  const seenGroups = new Set()
   return store.sessions.filter(s => {
+    if (s.is_break) return false
     if (selectedDay.value && s.day !== selectedDay.value) return false
     if (selectedTrack.value && s.track !== selectedTrack.value) return false
+    if (selectedKeywords.value.size && !s.keywords?.some(k => selectedKeywords.value.has(k))) return false
     if (onlyBookmarked.value && !store.bookmarkedIds.has(s.id)) return false
     if (onlyFriendBookmarked.value && !sharing.allFriendBookmarkedIds.has(s.id)) return false
     if (q && !s.title.toLowerCase().includes(q) && !s.speakers.join(' ').toLowerCase().includes(q)) return false
+    if (s.group_key) {
+      if (seenGroups.has(s.group_key)) return false
+      seenGroups.add(s.group_key)
+    }
     return true
-  })
+  }).map(s => s.group_key
+    ? { ...s, _rooms: groupRooms.get(s.group_key) ?? [s.room] }
+    : s
+  )
 })
 
 async function handleSignOut() {
@@ -212,10 +255,12 @@ async function handleSignOut() {
             @click="selectedDay = selectedDay === d.value ? '' : d.value"
           >{{ d.label }}</button>
 
-          <select v-model="selectedTrack">
-            <option value="">Tous les tracks</option>
-            <option v-for="t in store.tracks" :key="t" :value="t">{{ t }}</option>
-          </select>
+          <button
+            :class="['filter-btn', { active: selectedKeywords.size > 0 }]"
+            @click="showKeywordModal = true"
+          >
+            🏷 Mots-clés{{ selectedKeywords.size ? ` (${selectedKeywords.size})` : '' }}
+          </button>
 
           <button
             :class="['filter-btn', { active: onlyBookmarked }]"
@@ -240,6 +285,15 @@ async function handleSignOut() {
 
   <ShareModal v-if="showShareModal" @close="showShareModal = false" />
   <PlanModal v-if="showPlanModal" @close="showPlanModal = false" />
+  <KeywordFilterModal
+    v-if="showKeywordModal"
+    :keywords="allKeywords"
+    :selected="selectedKeywords"
+    :bookmarked="bookmarkedKeywords"
+    @toggle="toggleKeyword"
+    @reset="selectedKeywords = new Set()"
+    @close="showKeywordModal = false"
+  />
 </template>
 
 <style scoped>

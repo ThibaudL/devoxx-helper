@@ -8,14 +8,14 @@ import SessionModal from '../components/SessionModal.vue'
 const store = useSessionsStore()
 const sharing = useSharingStore()
 
-const PX_PER_MIN = 8
-const CARD_WIDTH = 230
-const TIME_WIDTH = 56
+const PX_PER_MIN = 7
+const LUNCH_PX_PER_MIN = 12
+const CARD_WIDTH = 240
 
 const DAYS = [
-  {value: 'wednesday', label: 'Wed, Apr 22', short: 'Wed'},
-  {value: 'thursday', label: 'Thu, Apr 23', short: 'Thu'},
-  {value: 'friday', label: 'Fri, Apr 24', short: 'Fri'},
+  {value: 'wednesday', label: 'Mercredi', short: 'Wed'},
+  {value: 'thursday', label: 'Jeudi', short: 'Thu'},
+  {value: 'friday', label: 'Vendredi', short: 'Fri'},
 ]
 const activeDay = ref('wednesday')
 const activeDayIdx = computed(() => DAYS.findIndex(d => d.value === activeDay.value))
@@ -97,8 +97,11 @@ const dayData = computed(() => {
   let cumulative = 0
   for (let i = 1; i < allMins.length; i++) {
     const prev = allMins[i - 1], curr = allMins[i]
-    const active = sessions.some(s => !s.is_break && toMin(s.start_time) <= prev && toMin(s.end_time) >= curr)
-    cumulative += active ? (curr - prev) * PX_PER_MIN : EMPTY_GAP_PX
+    const activeSessions = sessions.filter(s => !s.is_break && toMin(s.start_time) <= prev && toMin(s.end_time) >= curr)
+    const active = activeSessions.length > 0
+    const onlyLunch = active && activeSessions.every(s => s.format === 'Lunch Talk')
+    const rate = onlyLunch ? LUNCH_PX_PER_MIN : PX_PER_MIN
+    cumulative += active ? (curr - prev) * rate : EMPTY_GAP_PX
     pixelMap.set(curr, cumulative)
   }
   const totalHeight = cumulative
@@ -301,9 +304,14 @@ function onAvatarError(event, profile) {
               <!-- speakers -->
               <p v-if="s.speakers.length" class="card-speakers">{{ s.speakers.join(', ') }}</p>
 
-              <!-- track, level, language -->
+              <!-- track -->
               <div class="card-tags">
                 <span v-if="s.track" class="track-tag">{{ s.track }}</span>
+              </div>
+
+              <!-- keywords -->
+              <div v-if="s.keywords?.length" class="card-keywords">
+                <span v-for="kw in s.keywords.slice(0, 4)" :key="kw" class="kw-tag">{{ kw }}</span>
               </div>
               <div class="card-badges">
                 <span
@@ -489,6 +497,9 @@ function onAvatarError(event, profile) {
   padding: 0.125rem 0.375rem; border-radius: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;
 }
+
+.card-keywords { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.kw-tag { font-size: 0.6rem; font-weight: 500; padding: 0.1rem 0.35rem; border-radius: 4px; white-space: nowrap; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
 
 .card-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .level-tag { font-size: 0.625rem; font-weight: 700; padding: 0.125rem 0.375rem; border-radius: 4px; white-space: nowrap; text-transform: uppercase; }

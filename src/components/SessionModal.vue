@@ -61,15 +61,19 @@ function onOverlayClick(e) {
         </div>
 
         <!-- speakers -->
-        <div v-if="session.speakers?.length" class="speakers">
-          <div v-for="(name, i) in session.speakers" :key="i" class="speaker">
+        <div v-if="session.speaker_data?.length" class="speakers">
+          <div v-for="sp in session.speaker_data" :key="sp.id" class="speaker">
             <img
-              v-if="session.speaker_images?.[i]"
-              :src="session.speaker_images[i]"
-              :alt="name"
+              v-if="sp.imageUrl"
+              :src="sp.imageUrl"
+              :alt="sp.fullName"
               class="speaker-avatar"
             />
-            <span class="speaker-name">{{ name }}</span>
+            <div class="speaker-info">
+              <span class="speaker-name">{{ sp.fullName }}</span>
+              <span v-if="sp.company" class="speaker-company">{{ sp.company }}</span>
+              <div v-if="sp.bio" class="speaker-bio" v-html="sp.bio"/>
+            </div>
           </div>
         </div>
 
@@ -159,12 +163,22 @@ h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-1); line-height: 1.3
 .meta { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.82rem; color: var(--text-3); }
 
 .speakers {
-  display: flex; flex-wrap: wrap; gap: 0.75rem;
+  display: flex; flex-direction: column; gap: 1rem;
   border-top: 1px solid var(--border-faint); padding-top: 1rem;
 }
-.speaker { display: flex; align-items: center; gap: 0.5rem; }
-.speaker-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.speaker-name { font-size: 0.88rem; font-weight: 600; color: var(--text-1); }
+.speaker { display: flex; align-items: flex-start; gap: 0.75rem; }
+.speaker-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.speaker-info { display: flex; flex-direction: column; gap: 0.2rem; flex: 1; min-width: 0; }
+.speaker-name { font-size: 0.88rem; font-weight: 700; color: var(--text-1); }
+.speaker-company { font-size: 0.78rem; font-weight: 500; color: var(--accent); }
+.speaker-bio {
+  font-size: 0.78rem; line-height: 1.5; color: var(--text-3);
+  margin-top: 0.25rem;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.speaker-bio :deep(strong) { color: var(--text-2); font-weight: 600; }
+.speaker-bio :deep(ul) { padding-left: 1rem; margin: 0.25rem 0; }
+.speaker-bio :deep(li) { margin-bottom: 0.1rem; }
 
 .description {
   font-size: 0.88rem; line-height: 1.6; color: var(--text-2);

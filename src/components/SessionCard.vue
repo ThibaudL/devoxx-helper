@@ -54,7 +54,7 @@ function initials(p) {
     </div>
 
     <div class="card-footer">
-      <span class="room">{{ session.room }}</span>
+      <span class="room">{{ session._rooms ? session._rooms.join(' · ') : session.room }}</span>
       <div v-if="friends.length" class="friend-avatars">
         <div
           v-for="(f, i) in friends.slice(0, 3)" :key="i"

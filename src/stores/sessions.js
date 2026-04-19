@@ -52,17 +52,20 @@ function toSession(slot, day) {
     return null
   }
 
+  const proposalSpeakers = slot.proposal.speakers ?? []
   return {
     id: String(slot.proposal.id),
     title: slot.proposal.title,
     description: slot.proposal.description ?? null,
-    speakers: slot.speakers.map(s => s.fullName),
-    speaker_images: slot.speakers.map(s => s.imageUrl ?? ''),
+    speakers: proposalSpeakers.map(s => s.fullName),
+    speaker_images: proposalSpeakers.map(s => s.imageUrl ?? ''),
+    speaker_data: proposalSpeakers,
+    keywords: (slot.proposal.keywords ?? []).map(k => k.name),
     room: slot.room?.name ?? null,
     room_weight: slot.room?.weight ?? null,
     start_time: slot.fromDate,
     end_time: slot.toDate,
-    track: slot.track?.name ?? null,
+    track: slot.proposal.track?.name ?? null,
     format: slot.sessionType?.name ?? null,
     format_color: slot.sessionType?.cssColor ?? null,
     language: slot.proposal.language?.alpha2?.toUpperCase() ?? null,
@@ -93,6 +96,8 @@ function linkKeynoteSimulcasts(sessions) {
       s.description = real.description
       s.speakers = real.speakers
       s.speaker_images = real.speaker_images
+      s.speaker_data = real.speaker_data
+      s.keywords = real.keywords
       s.track = real.track
       s.language = real.language
       s.audience_level = real.audience_level
