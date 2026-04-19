@@ -3,12 +3,12 @@ import { ref } from 'vue'
 
 
 const FLOORS = [
-  { key: 'rdc',     label: 'Hall d\'exposition', sub: 'Exposants · Salle Maillot', src: '/hall exposition.jpg' },
-  { key: 'niveau1', label: 'Niveau 1', sub: 'Salles 141–153', src: '/1er etage.jpg' },
-  { key: 'niveau2', label: 'Niveau 2', sub: 'Salles 241–253', src: '/2eme etage.jpg' },
+  { key: 'rdc',     label: 'Hall d\'exposition', sub: 'Exposants · Salle Maillot', src: '/1_plan_large.png' },
+  { key: 'niveau1', label: 'Niveau 1', sub: 'Salles 141–153', src: '/1_Plan_first_floor.png' },
+  { key: 'niveau2', label: 'Niveau 2', sub: 'Salles 241–253', src: '/1_Plan_second_floor.png' },
 ]
 
-const active = ref('niveau2')
+const active = ref('rdc')
 
 function onOverlayClick(e) {
   if (e.target === e.currentTarget) emit('close')
