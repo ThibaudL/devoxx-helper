@@ -84,6 +84,30 @@ const allKeywords = computed(() =>
   [...new Set(store.sessions.flatMap(s => s.keywords ?? []))].sort()
 )
 
+const keywordGroups = computed(() => {
+  const trackCounts = new Map() // keyword → Map<track, count>
+  for (const s of store.sessions) {
+    if (!s.track || !s.keywords?.length) continue
+    for (const kw of s.keywords) {
+      if (!trackCounts.has(kw)) trackCounts.set(kw, new Map())
+      const m = trackCounts.get(kw)
+      m.set(s.track, (m.get(s.track) ?? 0) + 1)
+    }
+  }
+  const groups = new Map()
+  for (const kw of allKeywords.value) {
+    const counts = trackCounts.get(kw)
+    const group = counts?.size
+      ? [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+      : 'Autre'
+    if (!groups.has(group)) groups.set(group, [])
+    groups.get(group).push(kw)
+  }
+  return [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([group, keywords]) => ({ group, keywords }))
+})
+
 const bookmarkedKeywords = computed(() =>
   new Set(store.sessions.filter(s => store.bookmarkedIds.has(s.id)).flatMap(s => s.keywords ?? []))
 )
@@ -316,7 +340,7 @@ async function handleSignOut() {
   <PlanModal v-if="showPlanModal" @close="showPlanModal = false" />
   <KeywordFilterModal
     v-if="showKeywordModal"
-    :keywords="allKeywords"
+    :groups="keywordGroups"
     :selected="selectedKeywords"
     :bookmarked="bookmarkedKeywords"
     @toggle="toggleKeyword"
