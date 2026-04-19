@@ -3,12 +3,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSessionsStore } from '../stores/sessions'
+import { useSharingStore } from '../stores/sharing'
 import SessionCard from '../components/SessionCard.vue'
+import ShareModal from '../components/ShareModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
 const store = useSessionsStore()
+const sharing = useSharingStore()
 const router = useRouter()
+const showShareModal = ref(false)
 
 const search = ref('')
 const selectedDay = ref('')
@@ -23,8 +27,11 @@ const DAYS = [
 ]
 
 onMounted(async () => {
-  await Promise.all([store.fetchSessions(), store.fetchBookmarks()])
+  await Promise.all([store.fetchSessions(), store.fetchBookmarks(), sharing.fetchShares()])
+  await sharing.fetchFriendBookmarks()
 })
+
+const onlyFriendBookmarked = ref(false)
 
 const filtered = computed(() => {
   const q = search.value.toLowerCase()
@@ -32,6 +39,7 @@ const filtered = computed(() => {
     if (selectedDay.value && s.day !== selectedDay.value) return false
     if (selectedTrack.value && s.track !== selectedTrack.value) return false
     if (onlyBookmarked.value && !store.bookmarkedIds.has(s.id)) return false
+    if (onlyFriendBookmarked.value && !sharing.allFriendBookmarkedIds.has(s.id)) return false
     if (q && !s.title.toLowerCase().includes(q) && !s.speakers.join(' ').toLowerCase().includes(q)) return false
     return true
   })
@@ -51,6 +59,7 @@ async function handleSignOut() {
         <img v-if="auth.user?.user_metadata?.avatar_url" :src="auth.user.user_metadata.avatar_url" alt="avatar" />
         <span>{{ auth.user?.user_metadata?.full_name }}</span>
         <RouterLink to="/import" class="import-link">⬇ Importer</RouterLink>
+        <button class="share-btn" @click="showShareModal = true">👥 Partager</button>
         <button @click="handleSignOut">Déconnexion</button>
       </div>
     </header>
@@ -83,16 +92,24 @@ async function handleSignOut() {
             :class="['filter-btn', { active: onlyBookmarked }]"
             @click="onlyBookmarked = !onlyBookmarked"
           >★ Mes bookmarks ({{ store.bookmarkedIds.size }})</button>
+
+          <button
+            v-if="sharing.sharedByMe.length"
+            :class="['filter-btn', 'friend-filter', { active: onlyFriendBookmarked }]"
+            @click="onlyFriendBookmarked = !onlyFriendBookmarked"
+          >👥 Favoris amis ({{ sharing.allFriendBookmarkedIds.size }})</button>
         </div>
       </div>
 
       <div v-if="store.loading" class="empty">Chargement...</div>
       <div v-else-if="!filtered.length" class="empty">Aucun talk trouvé.</div>
       <div v-else class="grid">
-        <SessionCard v-for="s in filtered" :key="s.id" :session="s" />
+        <SessionCard v-for="s in filtered" :key="s.id" :session="s" :friends="sharing.getFriendsForSession(s.id)" />
       </div>
     </template>
   </div>
+
+  <ShareModal v-if="showShareModal" @close="showShareModal = false" />
 </template>
 
 <style scoped>
@@ -151,6 +168,20 @@ header {
 }
 
 .import-link:hover { background: #fff7ed; }
+
+.share-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  color: #3b82f6;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.share-btn:hover { background: #eff6ff; }
+
+.filter-btn.friend-filter { border-color: #3b82f6; color: #1d4ed8; }
+.filter-btn.friend-filter.active { background: #3b82f6; border-color: #3b82f6; color: white; }
 
 .toolbar {
   display: flex;

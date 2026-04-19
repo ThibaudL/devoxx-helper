@@ -5,6 +5,7 @@ import SessionModal from './SessionModal.vue'
 
 const props = defineProps({
   session: { type: Object, required: true },
+  friends: { type: Array, default: () => [] },
 })
 
 const store = useSessionsStore()
@@ -16,6 +17,11 @@ function formatTime(iso) {
 }
 
 const DAY_LABELS = { wednesday: 'Mer.', thursday: 'Jeu.', friday: 'Ven.' }
+
+function initials(p) {
+  if (p?.full_name) return p.full_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return (p?.email?.[0] ?? '?').toUpperCase()
+}
 </script>
 
 <template>
@@ -37,6 +43,17 @@ const DAY_LABELS = { wednesday: 'Mer.', thursday: 'Jeu.', friday: 'Ven.' }
 
     <div class="card-footer">
       <span class="room">{{ session.room }}</span>
+      <div v-if="friends.length" class="friend-avatars">
+        <div
+          v-for="(f, i) in friends.slice(0, 3)" :key="i"
+          class="friend-avatar"
+          :title="f?.full_name || f?.email"
+        >
+          <img v-if="f?.avatar_url" :src="f.avatar_url" :alt="f?.full_name" />
+          <span v-else>{{ initials(f) }}</span>
+        </div>
+        <span v-if="friends.length > 3" class="friend-overflow">+{{ friends.length - 3 }}</span>
+      </div>
       <button class="bookmark-btn" @click.stop="store.toggleBookmark(session.id)">
         {{ isBookmarked ? '★ Bookmarked' : '☆ Bookmark' }}
       </button>
@@ -117,6 +134,32 @@ h3 {
   justify-content: space-between;
   align-items: center;
   margin-top: 0.25rem;
+  gap: 0.4rem;
+}
+
+.friend-avatars {
+  display: flex;
+  align-items: center;
+  gap: -4px;
+  margin-left: auto;
+  margin-right: 0.3rem;
+}
+
+.friend-avatar {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #dbeafe; color: #1d4ed8;
+  border: 1.5px solid white;
+  margin-left: -4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.55rem; font-weight: 700;
+  overflow: hidden; flex-shrink: 0;
+}
+.friend-avatar:first-child { margin-left: 0; }
+.friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.friend-overflow {
+  font-size: 0.65rem; color: #6b7280;
+  margin-left: 2px;
 }
 
 .room {

@@ -119,7 +119,7 @@ async function doImport() {
         <div class="step-number">1</div>
         <div class="step-content">
           <h2>Ouvre le Devoxx Companion et connecte-toi</h2>
-          <p>Va sur <strong>m.devoxx.com/events/devoxxfr2026/schedule</strong> — assure-toi d'être connecté pour que tes likes soient chargés. Ne rafraîchis pas encore.</p>
+          <p>Va sur <strong>m.devoxx.com/events/devoxxfr2026/schedule</strong> — assure-toi d'être connecté pour que tes likes soient chargés. </p>
         </div>
       </div>
 
