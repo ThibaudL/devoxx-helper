@@ -8,7 +8,7 @@ import SessionModal from '../components/SessionModal.vue'
 const store = useSessionsStore()
 const sharing = useSharingStore()
 
-const PX_PER_MIN = 5
+const PX_PER_MIN = 8
 const CARD_WIDTH = 230
 const TIME_WIDTH = 56
 
@@ -81,35 +81,57 @@ const dayData = computed(() => {
   const sessions = store.sessions.filter(s => s.day === activeDay.value && s.room)
   if (!sessions.length) return null
 
-  const rooms = [...new Map(sessions.map(s => [s.room, s.room_weight])).entries()]
+  const rooms = [...new Map(sessions.filter(s => !s.is_break).map(s => [s.room, s.room_weight])).entries()]
       .sort((a, b) => (a[1] ?? 99) - (b[1] ?? 99))
       .map(([name]) => name)
 
-  const allMins = sessions.flatMap(s => [toMin(s.start_time), toMin(s.end_time)])
-  const dayStartMin = Math.min(...allMins)
-  const dayEndMin = Math.max(...allMins)
-  const totalHeight = (dayEndMin - dayStartMin) * PX_PER_MIN
+  // Compressed time scale: gaps with no real sessions get a fixed small height
+  const EMPTY_GAP_PX = 32
+  const allMins = [...new Set(sessions.flatMap(s => [toMin(s.start_time), toMin(s.end_time)]))]
+      .sort((a, b) => a - b)
+  const dayStartMin = allMins[0]
+  const dayEndMin = allMins[allMins.length - 1]
+
+  const pixelMap = new Map()
+  pixelMap.set(dayStartMin, 0)
+  let cumulative = 0
+  for (let i = 1; i < allMins.length; i++) {
+    const prev = allMins[i - 1], curr = allMins[i]
+    const active = sessions.some(s => !s.is_break && toMin(s.start_time) <= prev && toMin(s.end_time) >= curr)
+    cumulative += active ? (curr - prev) * PX_PER_MIN : EMPTY_GAP_PX
+    pixelMap.set(curr, cumulative)
+  }
+  const totalHeight = cumulative
+
+  function minToPixel(min) {
+    if (min <= dayStartMin) return 0
+    if (min >= dayEndMin) return totalHeight
+    if (pixelMap.has(min)) return pixelMap.get(min)
+    let prev = dayStartMin, next = dayEndMin
+    for (const m of allMins) { if (m <= min) prev = m; else { next = m; break } }
+    const ratio = (min - prev) / (next - prev)
+    return pixelMap.get(prev) + ratio * (pixelMap.get(next) - pixelMap.get(prev))
+  }
 
   const timeMarks = []
   for (let h = Math.floor(dayStartMin / 60); h <= Math.ceil(dayEndMin / 60); h++) {
     const min = h * 60
     if (min < dayStartMin || min > dayEndMin) continue
-    timeMarks.push({
-      label: `${String(h).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`,
-      top: (min - dayStartMin) * PX_PER_MIN
-    })
+    timeMarks.push({ label: `${String(h).padStart(2, '0')}:00`, top: minToPixel(min) })
   }
 
-  const slotTops = [...new Set(sessions.map(s => toMin(s.start_time)))]
-      .sort((a, b) => a - b).map(m => (m - dayStartMin) * PX_PER_MIN)
+  const slotTops = [...new Set(sessions.filter(s => !s.is_break).map(s => toMin(s.start_time)))]
+      .sort((a, b) => a - b).map(m => pixelMap.get(m)).filter(t => t !== undefined)
 
   const withPos = sessions.map(s => {
     const startMin = toMin(s.start_time), endMin = toMin(s.end_time)
-    const rawHeight = (endMin - startMin) * PX_PER_MIN - 4
+    const top = pixelMap.get(startMin) ?? 0
+    const bottom = pixelMap.get(endMin) ?? top
+    const rawHeight = bottom - top - 4
     return {
       ...s,
-      top: (startMin - dayStartMin) * PX_PER_MIN,
-      height: s.is_break ? Math.max(rawHeight, 22) : rawHeight,
+      top,
+      height: s.is_break ? Math.max(bottom - top, 22) : rawHeight,
       col: rooms.indexOf(s.room),
       bookmarked: store.bookmarkedIds.has(s.id),
       startMin, endMin,
@@ -166,16 +188,16 @@ const dayData = computed(() => {
     }
   }
 
-  return {rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin}
+  return {rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin, minToPixel}
 })
 
-const totalWidth = computed(() => dayData.value ? TIME_WIDTH + dayData.value.rooms.length * CARD_WIDTH : 0)
+const totalWidth = computed(() => dayData.value ? dayData.value.rooms.length * CARD_WIDTH : 0)
 
 const nowTop = computed(() => {
   if (!dayData.value) return null
-  const {dayStartMin, dayEndMin} = dayData.value
+  const {dayStartMin, dayEndMin, minToPixel} = dayData.value
   if (nowMin.value < dayStartMin || nowMin.value > dayEndMin) return null
-  return (nowMin.value - dayStartMin) * PX_PER_MIN
+  return minToPixel(nowMin.value)
 })
 
 function onAvatarError(event, profile) {
@@ -221,7 +243,6 @@ function onAvatarError(event, profile) {
 
         <!-- sticky header -->
         <div class="header-row" :style="{ width: totalWidth + 'px' }">
-          <div class="time-gutter-header" :style="{ width: TIME_WIDTH + 'px' }"/>
           <div v-for="room in dayData.rooms" :key="room" class="room-header" :style="{ width: CARD_WIDTH + 'px' }">
             {{ room }}
           </div>
@@ -229,13 +250,6 @@ function onAvatarError(event, profile) {
 
         <!-- body -->
         <div class="body-row">
-          <!-- time labels -->
-          <div class="time-gutter" :style="{ width: TIME_WIDTH + 'px', height: dayData.totalHeight + 'px' }">
-            <div v-for="m in dayData.timeMarks" :key="m.label" class="time-label" :style="{ top: m.top + 'px' }">
-              {{ m.label }}
-            </div>
-          </div>
-
           <!-- session area -->
           <div class="session-area"
                :style="{ width: (dayData.rooms.length * CARD_WIDTH) + 'px', height: dayData.totalHeight + 'px' }">
