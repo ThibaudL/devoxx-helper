@@ -10,7 +10,7 @@ const sharing = useSharingStore()
 
 const PX_PER_MIN = 8
 const LUNCH_PX_PER_MIN = 14
-const CARD_WIDTH = 240
+const CARD_WIDTH = 260
 
 const DAYS = [
   {value: 'wednesday', label: 'Mercredi', short: 'Wed'},
