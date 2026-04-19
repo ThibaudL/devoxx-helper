@@ -27,7 +27,7 @@ const DAYS = [
 ]
 
 onMounted(async () => {
-  await Promise.all([store.fetchSessions(), store.fetchBookmarks(), sharing.fetchShares()])
+  await Promise.all([store.fetchSessions(), store.fetchBookmarks(), sharing.fetchTeams()])
   await sharing.fetchFriendBookmarks()
 })
 
@@ -94,7 +94,7 @@ async function handleSignOut() {
           >★ Mes bookmarks ({{ store.bookmarkedIds.size }})</button>
 
           <button
-            v-if="sharing.sharedByMe.length"
+            v-if="sharing.teams.length"
             :class="['filter-btn', 'friend-filter', { active: onlyFriendBookmarked }]"
             @click="onlyFriendBookmarked = !onlyFriendBookmarked"
           >👥 Favoris amis ({{ sharing.allFriendBookmarkedIds.size }})</button>

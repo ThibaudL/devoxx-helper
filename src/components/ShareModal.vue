@@ -5,29 +5,46 @@ import { useSharingStore } from '../stores/sharing'
 const emit = defineEmits(['close'])
 const sharing = useSharingStore()
 
-const emailInput = ref('')
-const errorMsg = ref('')
-const successMsg = ref('')
-const submitting = ref(false)
+const newTeamName = ref('')
+const creatingTeam = ref(false)
+const createError = ref('')
 
-async function submit() {
-  errorMsg.value = ''
-  successMsg.value = ''
-  submitting.value = true
+const inviteEmail = ref({})   // { [teamId]: string }
+const inviteError = ref({})   // { [teamId]: string }
+const inviteOk    = ref({})   // { [teamId]: string }
+const inviting    = ref({})   // { [teamId]: bool }
+
+async function submitCreateTeam() {
+  createError.value = ''
+  creatingTeam.value = true
   try {
-    await sharing.shareWith(emailInput.value)
-    successMsg.value = 'Favoris partagés !'
-    emailInput.value = ''
+    await sharing.createTeam(newTeamName.value)
+    newTeamName.value = ''
   } catch (e) {
-    errorMsg.value = e.message
+    createError.value = e.message
   } finally {
-    submitting.value = false
+    creatingTeam.value = false
   }
 }
 
-function initials(profile) {
-  if (profile?.full_name) return profile.full_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  return (profile?.email?.[0] ?? '?').toUpperCase()
+async function submitInvite(teamId) {
+  inviteError.value = { ...inviteError.value, [teamId]: '' }
+  inviteOk.value    = { ...inviteOk.value,    [teamId]: '' }
+  inviting.value    = { ...inviting.value,    [teamId]: true }
+  try {
+    await sharing.inviteToTeam(teamId, inviteEmail.value[teamId] ?? '')
+    inviteOk.value    = { ...inviteOk.value,    [teamId]: 'Invitation envoyée !' }
+    inviteEmail.value = { ...inviteEmail.value, [teamId]: '' }
+  } catch (e) {
+    inviteError.value = { ...inviteError.value, [teamId]: e.message }
+  } finally {
+    inviting.value = { ...inviting.value, [teamId]: false }
+  }
+}
+
+function initials(p) {
+  if (p?.full_name) return p.full_name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return (p?.email?.[0] ?? '?').toUpperCase()
 }
 </script>
 
@@ -35,67 +52,72 @@ function initials(profile) {
   <div class="overlay" @click.self="emit('close')">
     <div class="modal">
       <div class="modal-header">
-        <h2>Partager mes favoris</h2>
+        <h2>Équipes</h2>
         <button class="close-btn" @click="emit('close')">✕</button>
       </div>
 
-      <!-- Add friend -->
-      <div class="section">
-        <p class="section-label">Partager avec un ami par email</p>
-        <form class="add-row" @submit.prevent="submit">
+      <!-- Teams list -->
+      <div v-for="team in sharing.teams" :key="team.id" class="team-block">
+        <div class="team-title-row">
+          <span class="team-name">{{ team.name }}</span>
+          <button class="leave-btn" @click="sharing.leaveTeam(team.id)">Quitter</button>
+        </div>
+
+        <!-- Members -->
+        <ul class="person-list">
+          <li v-for="m in team.members" :key="m.id" class="person-row">
+            <div class="avatar" :title="m.profile?.email">
+              <img v-if="m.profile?.avatar_url" :src="m.profile.avatar_url" :alt="m.profile?.full_name" />
+              <span v-else>{{ initials(m.profile) }}</span>
+            </div>
+            <div class="person-info">
+              <span class="person-name">{{ m.profile?.full_name || m.profile?.email }}</span>
+              <span class="person-email">{{ m.profile?.email }}</span>
+            </div>
+          </li>
+        </ul>
+
+        <!-- Invite to this team -->
+        <form class="invite-row" @submit.prevent="submitInvite(team.id)">
           <input
-            v-model="emailInput"
+            :value="inviteEmail[team.id] ?? ''"
+            @input="inviteEmail = { ...inviteEmail, [team.id]: $event.target.value }"
             type="email"
-            placeholder="ami@example.com"
+            placeholder="Inviter par email…"
             class="email-input"
-            :disabled="submitting"
+            :disabled="inviting[team.id]"
           />
-          <button type="submit" class="add-btn" :disabled="submitting || !emailInput.trim()">
-            {{ submitting ? '…' : 'Partager' }}
+          <button
+            type="submit"
+            class="invite-btn"
+            :disabled="inviting[team.id] || !(inviteEmail[team.id] ?? '').trim()"
+          >{{ inviting[team.id] ? '…' : 'Inviter' }}</button>
+        </form>
+        <p v-if="inviteError[team.id]" class="msg error">{{ inviteError[team.id] }}</p>
+        <p v-if="inviteOk[team.id]"    class="msg success">{{ inviteOk[team.id] }}</p>
+      </div>
+
+      <p v-if="!sharing.teams.length" class="empty-state">
+        Vous n'êtes dans aucune équipe. Créez-en une ci-dessous.
+      </p>
+
+      <!-- Create team -->
+      <div class="section create-section">
+        <p class="section-label">Créer une équipe</p>
+        <form class="add-row" @submit.prevent="submitCreateTeam">
+          <input
+            v-model="newTeamName"
+            type="text"
+            placeholder="Nom de l'équipe…"
+            class="email-input"
+            :disabled="creatingTeam"
+          />
+          <button type="submit" class="add-btn" :disabled="creatingTeam || !newTeamName.trim()">
+            {{ creatingTeam ? '…' : 'Créer' }}
           </button>
         </form>
-        <p v-if="errorMsg" class="msg error">{{ errorMsg }}</p>
-        <p v-if="successMsg" class="msg success">{{ successMsg }}</p>
+        <p v-if="createError" class="msg error">{{ createError }}</p>
       </div>
-
-      <!-- Outgoing shares -->
-      <div class="section" v-if="sharing.sharedWith.length">
-        <p class="section-label">Vous partagez avec</p>
-        <ul class="person-list">
-          <li v-for="s in sharing.sharedWith" :key="s.id" class="person-row">
-            <div class="avatar" :title="s.profile?.email">
-              <img v-if="s.profile?.avatar_url" :src="s.profile.avatar_url" :alt="s.profile.full_name" />
-              <span v-else>{{ initials(s.profile) }}</span>
-            </div>
-            <div class="person-info">
-              <span class="person-name">{{ s.profile?.full_name || s.profile?.email }}</span>
-              <span class="person-email">{{ s.profile?.email }}</span>
-            </div>
-            <button class="remove-btn" @click="sharing.removeShare(s.id)" title="Révoquer le partage">✕</button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Incoming shares -->
-      <div class="section" v-if="sharing.sharedByMe.length">
-        <p class="section-label">Favoris partagés avec vous par</p>
-        <ul class="person-list">
-          <li v-for="s in sharing.sharedByMe" :key="s.id" class="person-row incoming">
-            <div class="avatar" :title="s.profile?.email">
-              <img v-if="s.profile?.avatar_url" :src="s.profile.avatar_url" :alt="s.profile.full_name" />
-              <span v-else>{{ initials(s.profile) }}</span>
-            </div>
-            <div class="person-info">
-              <span class="person-name">{{ s.profile?.full_name || s.profile?.email }}</span>
-              <span class="person-email">{{ s.profile?.email }}</span>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <p v-if="!sharing.sharedWith.length && !sharing.sharedByMe.length" class="empty-state">
-        Aucun partage actif. Entrez l'email d'un ami pour commencer.
-      </p>
     </div>
   </div>
 </template>
@@ -122,79 +144,80 @@ function initials(profile) {
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
 }
-
 .modal-header h2 { margin: 0; font-size: 1.1rem; }
-
-.close-btn {
-  border: none; background: none; font-size: 1rem;
-  cursor: pointer; color: #6b7280; padding: 4px;
-}
+.close-btn { border: none; background: none; font-size: 1rem; cursor: pointer; color: #6b7280; padding: 4px; }
 .close-btn:hover { color: #111; }
 
-.section { display: flex; flex-direction: column; gap: 0.6rem; }
-
-.section-label {
-  font-size: 0.78rem; font-weight: 600;
-  color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em;
-  margin: 0;
-}
-
-.add-row { display: flex; gap: 0.5rem; }
-
-.email-input {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-.email-input:focus { outline: none; border-color: #3b82f6; }
-
-.add-btn {
-  padding: 0.5rem 1rem;
-  background: #3b82f6; color: white;
-  border: none; border-radius: 8px;
-  font-size: 0.85rem; font-weight: 600;
-  cursor: pointer; white-space: nowrap;
-}
-.add-btn:disabled { background: #93c5fd; cursor: default; }
-
-.msg { font-size: 0.82rem; margin: 0; }
-.msg.error   { color: #ef4444; }
-.msg.success { color: #16a34a; }
-
-.person-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-
-.person-row {
-  display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
+.team-block {
+  display: flex; flex-direction: column; gap: 0.6rem;
+  padding: 0.75rem;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 10px;
 }
-.person-row.incoming { background: #f0fdf4; border-color: #bbf7d0; }
+
+.team-title-row {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.team-name { font-weight: 700; font-size: 0.95rem; }
+.leave-btn {
+  font-size: 0.75rem; color: #ef4444;
+  border: 1px solid #fca5a5; border-radius: 6px;
+  background: white; cursor: pointer; padding: 2px 8px;
+}
+.leave-btn:hover { background: #fef2f2; }
+
+.person-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.person-row { display: flex; align-items: center; gap: 0.6rem; }
 
 .avatar {
-  width: 36px; height: 36px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: #dbeafe; color: #1d4ed8;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; font-weight: 700;
+  font-size: 0.7rem; font-weight: 700;
   flex-shrink: 0; overflow: hidden;
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-.person-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.person-name { font-size: 0.85rem; font-weight: 600; truncate: ellipsis; }
-.person-email { font-size: 0.72rem; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.person-name { font-size: 0.82rem; font-weight: 600; }
+.person-email { font-size: 0.7rem; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.remove-btn {
-  border: none; background: none;
-  color: #9ca3af; cursor: pointer; font-size: 0.8rem; padding: 4px;
+.invite-row { display: flex; gap: 0.4rem; margin-top: 0.25rem; }
+.email-input {
+  flex: 1; padding: 0.4rem 0.6rem;
+  border: 1px solid #d1d5db; border-radius: 7px; font-size: 0.85rem;
 }
-.remove-btn:hover { color: #ef4444; }
+.email-input:focus { outline: none; border-color: #3b82f6; }
 
-.empty-state { font-size: 0.85rem; color: #9ca3af; text-align: center; padding: 1rem 0; margin: 0; }
+.invite-btn {
+  padding: 0.4rem 0.8rem;
+  background: #3b82f6; color: white;
+  border: none; border-radius: 7px;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.invite-btn:disabled { background: #93c5fd; cursor: default; }
+
+.msg { font-size: 0.78rem; margin: 0; }
+.msg.error   { color: #ef4444; }
+.msg.success { color: #16a34a; }
+
+.section { display: flex; flex-direction: column; gap: 0.6rem; }
+.create-section {
+  padding-top: 0.75rem;
+  border-top: 1px solid #f3f4f6;
+}
+.section-label { font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+
+.add-row { display: flex; gap: 0.5rem; }
+.add-btn {
+  padding: 0.4rem 0.9rem;
+  background: #3b82f6; color: white;
+  border: none; border-radius: 7px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.add-btn:disabled { background: #93c5fd; cursor: default; }
+
+.empty-state { font-size: 0.85rem; color: #9ca3af; text-align: center; padding: 0.5rem 0; margin: 0; }
 </style>

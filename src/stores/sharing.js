@@ -6,46 +6,56 @@ import { useAuthStore } from './auth'
 export const useSharingStore = defineStore('sharing', () => {
   const auth = useAuthStore()
 
-  // Outgoing: people I've shared my favorites with [{ id, shared_with_id, profile }]
-  const sharedWith = ref([])
-  // Incoming: people who shared their favorites with me [{ id, owner_id, profile }]
-  const sharedByMe = ref([])
+  // [{ id, name, created_by, members: [{ id, user_id, profile }] }]
+  const teams = ref([])
 
-  // Map<userId, Set<sessionId>> — bookmarked sessions from each friend
+  // Map<userId, Set<sessionId>>
   const friendBookmarks = ref(new Map())
-  // Map<userId, { email, full_name, avatar_url }>
+  // Map<userId, { id, email, full_name, avatar_url }>
   const friendProfiles = ref(new Map())
 
-  async function fetchShares() {
+  async function fetchTeams() {
     if (!auth.user) return
 
-    const [{ data: outgoing }, { data: incoming }] = await Promise.all([
-      supabase.from('friend_shares').select('id, shared_with_id').eq('owner_id', auth.user.id),
-      supabase.from('friend_shares').select('id, owner_id').eq('shared_with_id', auth.user.id),
+    const { data: myMemberships } = await supabase
+      .from('team_members')
+      .select('team_id')
+
+    if (!myMemberships?.length) { teams.value = []; return }
+
+    const teamIds = myMemberships.map(r => r.team_id)
+
+    const [{ data: teamRows }, { data: memberRows }] = await Promise.all([
+      supabase.from('teams').select('id, name, created_by').in('id', teamIds),
+      supabase.from('team_members').select('id, team_id, user_id').in('team_id', teamIds),
     ])
 
-    const outIds = (outgoing ?? []).map(s => s.shared_with_id)
-    const inIds  = (incoming ?? []).map(s => s.owner_id)
-    const allIds = [...new Set([...outIds, ...inIds])]
-
-    let profiles = []
-    if (allIds.length) {
-      const { data } = await supabase.from('profiles').select('id, email, full_name, avatar_url').in('id', allIds)
-      profiles = data ?? []
+    const allUserIds = [...new Set((memberRows ?? []).map(m => m.user_id))]
+    const profileMap = new Map()
+    if (allUserIds.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, avatar_url')
+        .in('id', allUserIds)
+      for (const p of profiles ?? []) profileMap.set(p.id, p)
     }
-    const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]))
 
-    sharedWith.value = (outgoing ?? []).map(s => ({ ...s, profile: profileMap[s.shared_with_id] }))
-    sharedByMe.value = (incoming ?? []).map(s => ({ ...s, profile: profileMap[s.owner_id] }))
+    teams.value = (teamRows ?? []).map(t => ({
+      ...t,
+      members: (memberRows ?? [])
+        .filter(m => m.team_id === t.id)
+        .map(m => ({ ...m, profile: profileMap.get(m.user_id) })),
+    }))
 
-    const pmap = new Map()
-    for (const p of profiles) pmap.set(p.id, p)
-    friendProfiles.value = pmap
+    const fp = new Map()
+    for (const [uid, p] of profileMap) {
+      if (uid !== auth.user.id) fp.set(uid, p)
+    }
+    friendProfiles.value = fp
   }
 
   async function fetchFriendBookmarks() {
     if (!auth.user) return
-    // RLS friend read policy lets us see friends' agenda_items
     const { data } = await supabase
       .from('agenda_items')
       .select('user_id, session_id')
@@ -59,34 +69,47 @@ export const useSharingStore = defineStore('sharing', () => {
     friendBookmarks.value = map
   }
 
-  async function shareWith(email) {
+  async function createTeam(name) {
+    const trimmed = name.trim()
+    if (!trimmed) throw new Error('Nom requis')
+    const { data, error } = await supabase.rpc('create_team', { team_name: trimmed })
+    if (error) throw error
+    await fetchTeams()
+    return data
+  }
+
+  async function inviteToTeam(teamId, email) {
     const trimmed = email.trim().toLowerCase()
     if (!trimmed) throw new Error('Email requis')
 
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('id, email, full_name, avatar_url')
+      .select('id')
       .ilike('email', trimmed)
       .single()
 
     if (error || !profile) throw new Error('Aucun compte trouvé pour cet email')
-    if (profile.id === auth.user.id) throw new Error('Vous ne pouvez pas vous partager à vous-même')
+    if (profile.id === auth.user.id) throw new Error('Vous êtes déjà dans cette équipe')
 
     const { error: insertError } = await supabase
-      .from('friend_shares')
-      .insert({ owner_id: auth.user.id, shared_with_id: profile.id })
+      .from('team_members')
+      .insert({ team_id: teamId, user_id: profile.id, invited_by: auth.user.id })
 
     if (insertError) {
-      if (insertError.code === '23505') throw new Error('Déjà partagé avec cet utilisateur')
+      if (insertError.code === '23505') throw new Error('Cet utilisateur est déjà dans l\'équipe')
       throw insertError
     }
 
-    await fetchShares()
+    await fetchTeams()
   }
 
-  async function removeShare(shareId) {
-    await supabase.from('friend_shares').delete().eq('id', shareId)
-    sharedWith.value = sharedWith.value.filter(s => s.id !== shareId)
+  async function leaveTeam(teamId) {
+    await supabase
+      .from('team_members')
+      .delete()
+      .eq('team_id', teamId)
+      .eq('user_id', auth.user.id)
+    await fetchTeams()
   }
 
   function getFriendsForSession(sessionId) {
@@ -99,7 +122,6 @@ export const useSharingStore = defineStore('sharing', () => {
     return result
   }
 
-  // All session IDs bookmarked by at least one friend
   const allFriendBookmarkedIds = computed(() => {
     const ids = new Set()
     for (const sessionIds of friendBookmarks.value.values()) {
@@ -109,15 +131,15 @@ export const useSharingStore = defineStore('sharing', () => {
   })
 
   return {
-    sharedWith,
-    sharedByMe,
+    teams,
     friendBookmarks,
     friendProfiles,
     allFriendBookmarkedIds,
-    fetchShares,
+    fetchTeams,
     fetchFriendBookmarks,
-    shareWith,
-    removeShare,
+    createTeam,
+    inviteToTeam,
+    leaveTeam,
     getFriendsForSession,
   }
 })

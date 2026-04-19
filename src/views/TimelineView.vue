@@ -1,55 +1,82 @@
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
-import { useSessionsStore } from '../stores/sessions'
+import {computed, onUnmounted, ref} from 'vue'
+import {useSessionsStore} from '../stores/sessions'
 import SessionModal from '../components/SessionModal.vue'
 
 const store = useSessionsStore()
 
 const PX_PER_MIN = 5
-const CARD_WIDTH  = 230
-const TIME_WIDTH  = 56
+const CARD_WIDTH = 230
+const TIME_WIDTH = 56
 
 const DAYS = [
-  { value: 'wednesday', label: 'Wed, Apr 22', short: 'Wed' },
-  { value: 'thursday',  label: 'Thu, Apr 23', short: 'Thu' },
-  { value: 'friday',    label: 'Fri, Apr 24',  short: 'Fri' },
+  {value: 'wednesday', label: 'Wed, Apr 22', short: 'Wed'},
+  {value: 'thursday', label: 'Thu, Apr 23', short: 'Thu'},
+  {value: 'friday', label: 'Fri, Apr 24', short: 'Fri'},
 ]
 const activeDay = ref('wednesday')
 const activeDayIdx = computed(() => DAYS.findIndex(d => d.value === activeDay.value))
-function prevDay() { if (activeDayIdx.value > 0) activeDay.value = DAYS[activeDayIdx.value - 1].value }
-function nextDay() { if (activeDayIdx.value < DAYS.length - 1) activeDay.value = DAYS[activeDayIdx.value + 1].value }
+
+function prevDay() {
+  if (activeDayIdx.value > 0) activeDay.value = DAYS[activeDayIdx.value - 1].value
+}
+
+function nextDay() {
+  if (activeDayIdx.value < DAYS.length - 1) activeDay.value = DAYS[activeDayIdx.value + 1].value
+}
 
 const selectedSession = ref(null)
 
 // drag-scroll
 const scrollEl = ref(null)
 let isDragging = false, startX = 0, scrollLeft = 0
+
 function onMouseDown(e) {
-  isDragging = true; startX = e.pageX - scrollEl.value.offsetLeft; scrollLeft = scrollEl.value.scrollLeft
-  scrollEl.value.style.cursor = 'grabbing'; scrollEl.value.style.userSelect = 'none'
+  isDragging = true;
+  startX = e.pageX - scrollEl.value.offsetLeft;
+  scrollLeft = scrollEl.value.scrollLeft
+  scrollEl.value.style.cursor = 'grabbing';
+  scrollEl.value.style.userSelect = 'none'
 }
+
 function onMouseMove(e) {
-  if (!isDragging) return; e.preventDefault()
+  if (!isDragging) return;
+  e.preventDefault()
   scrollEl.value.scrollLeft = scrollLeft - (e.pageX - scrollEl.value.offsetLeft - startX)
 }
-function onMouseUp() { isDragging = false; if (scrollEl.value) { scrollEl.value.style.cursor = 'grab'; scrollEl.value.style.userSelect = '' } }
+
+function onMouseUp() {
+  isDragging = false;
+  if (scrollEl.value) {
+    scrollEl.value.style.cursor = 'grab';
+    scrollEl.value.style.userSelect = ''
+  }
+}
 
 function toMin(iso) {
-  const parts = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris', hour12: false }).formatToParts(new Date(iso))
+  const parts = new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+    hour12: false
+  }).formatToParts(new Date(iso))
   return parseInt(parts.find(p => p.type === 'hour').value) * 60 + parseInt(parts.find(p => p.type === 'minute').value)
 }
 
 const nowMin = ref(toMin(new Date().toISOString()))
-const nowTimer = setInterval(() => { nowMin.value = toMin(new Date().toISOString()) }, 60_000)
+const nowTimer = setInterval(() => {
+  nowMin.value = toMin(new Date().toISOString())
+}, 60_000)
 onUnmounted(() => clearInterval(nowTimer))
+
 function fmt(iso) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+  return new Date(iso).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'})
 }
 
 const LEVEL_STYLE = {
-  BEGINNER:     { bg: '#dcfce7', color: '#166534' },
-  INTERMEDIATE: { bg: '#fef3c7', color: '#92400e' },
-  ADVANCED:     { bg: '#fee2e2', color: '#991b1b' },
+  BEGINNER: {bg: '#dcfce7', color: '#166534'},
+  INTERMEDIATE: {bg: '#fef3c7', color: '#92400e'},
+  ADVANCED: {bg: '#fee2e2', color: '#991b1b'},
 }
 
 const dayData = computed(() => {
@@ -57,23 +84,26 @@ const dayData = computed(() => {
   if (!sessions.length) return null
 
   const rooms = [...new Map(sessions.map(s => [s.room, s.room_weight])).entries()]
-    .sort((a, b) => (a[1] ?? 99) - (b[1] ?? 99))
-    .map(([name]) => name)
+      .sort((a, b) => (a[1] ?? 99) - (b[1] ?? 99))
+      .map(([name]) => name)
 
   const allMins = sessions.flatMap(s => [toMin(s.start_time), toMin(s.end_time)])
   const dayStartMin = Math.min(...allMins)
-  const dayEndMin   = Math.max(...allMins)
+  const dayEndMin = Math.max(...allMins)
   const totalHeight = (dayEndMin - dayStartMin) * PX_PER_MIN
 
   const timeMarks = []
   for (let h = Math.floor(dayStartMin / 60); h <= Math.ceil(dayEndMin / 60); h++) {
     const min = h * 60
     if (min < dayStartMin || min > dayEndMin) continue
-    timeMarks.push({ label: `${String(h).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`, top: (min - dayStartMin) * PX_PER_MIN })
+    timeMarks.push({
+      label: `${String(h).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`,
+      top: (min - dayStartMin) * PX_PER_MIN
+    })
   }
 
   const slotTops = [...new Set(sessions.map(s => toMin(s.start_time)))]
-    .sort((a, b) => a - b).map(m => (m - dayStartMin) * PX_PER_MIN)
+      .sort((a, b) => a - b).map(m => (m - dayStartMin) * PX_PER_MIN)
 
   const withPos = sessions.map(s => {
     const startMin = toMin(s.start_time), endMin = toMin(s.end_time)
@@ -94,10 +124,13 @@ const dayData = computed(() => {
   const cards = []
   for (const s of withPos) {
     if (s.is_break) continue
-    if (!s.group_key) { cards.push({ ...s, span: 1 }); continue }
+    if (!s.group_key) {
+      cards.push({...s, span: 1});
+      continue
+    }
     const g = groups.get(s.group_key)
     if (!g) {
-      const card = { ...s, span: 1, minCol: s.col, maxCol: s.col }
+      const card = {...s, span: 1, minCol: s.col, maxCol: s.col}
       groups.set(s.group_key, card)
       cards.push(card)
     } else {
@@ -106,8 +139,11 @@ const dayData = computed(() => {
       g.col = g.minCol
       g.span = g.maxCol - g.minCol + 1
       // prefer a real id over a placeholder so bookmarks still work
-      if (!g.simulcast && s.simulcast) { /* keep g */ }
-      else if (g.simulcast && !s.simulcast) { g.id = s.id; g.simulcast = false }
+      if (!g.simulcast && s.simulcast) { /* keep g */
+      } else if (g.simulcast && !s.simulcast) {
+        g.id = s.id;
+        g.simulcast = false
+      }
     }
   }
 
@@ -116,24 +152,30 @@ const dayData = computed(() => {
   for (let i = 0; i < bookmarkedList.length; i++)
     for (let j = i + 1; j < bookmarkedList.length; j++) {
       const a = bookmarkedList[i], b = bookmarkedList[j]
-      if (a.startMin < b.endMin && b.startMin < a.endMin) { conflictIds.add(a.id); conflictIds.add(b.id) }
+      if (a.startMin < b.endMin && b.startMin < a.endMin) {
+        conflictIds.add(a.id);
+        conflictIds.add(b.id)
+      }
     }
 
   const breakBanners = []
   const seenBreaks = new Map()
   for (const s of withPos) {
     if (!s.is_break) continue
-    if (!seenBreaks.has(s.start_time)) { seenBreaks.set(s.start_time, s); breakBanners.push(s) }
+    if (!seenBreaks.has(s.start_time)) {
+      seenBreaks.set(s.start_time, s);
+      breakBanners.push(s)
+    }
   }
 
-  return { rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin }
+  return {rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin}
 })
 
 const totalWidth = computed(() => dayData.value ? TIME_WIDTH + dayData.value.rooms.length * CARD_WIDTH : 0)
 
 const nowTop = computed(() => {
   if (!dayData.value) return null
-  const { dayStartMin, dayEndMin } = dayData.value
+  const {dayStartMin, dayEndMin} = dayData.value
   if (nowMin.value < dayStartMin || nowMin.value > dayEndMin) return null
   return (nowMin.value - dayStartMin) * PX_PER_MIN
 })
@@ -145,10 +187,11 @@ const nowTop = computed(() => {
     <div class="nav-bar">
       <div class="day-tabs">
         <button
-          v-for="d in DAYS" :key="d.value"
-          :class="['day-tab', { active: activeDay === d.value }]"
-          @click="activeDay = d.value"
-        >{{ d.label }}</button>
+            v-for="d in DAYS" :key="d.value"
+            :class="['day-tab', { active: activeDay === d.value }]"
+            @click="activeDay = d.value"
+        >{{ d.label }}
+        </button>
       </div>
       <div class="nav-arrows">
         <button class="arrow-btn" :disabled="activeDayIdx === 0" @click="prevDay">‹</button>
@@ -160,19 +203,19 @@ const nowTop = computed(() => {
     <div v-else-if="!dayData" class="empty">Aucune session.</div>
 
     <div
-      v-else
-      ref="scrollEl"
-      class="scroll-outer"
-      @mousedown="onMouseDown"
-      @mousemove="onMouseMove"
-      @mouseup="onMouseUp"
-      @mouseleave="onMouseUp"
+        v-else
+        ref="scrollEl"
+        class="scroll-outer"
+        @mousedown="onMouseDown"
+        @mousemove="onMouseMove"
+        @mouseup="onMouseUp"
+        @mouseleave="onMouseUp"
     >
       <div class="grid-root" :style="{ width: totalWidth + 'px' }">
 
         <!-- sticky header -->
         <div class="header-row" :style="{ width: totalWidth + 'px' }">
-          <div class="time-gutter-header" :style="{ width: TIME_WIDTH + 'px' }" />
+          <div class="time-gutter-header" :style="{ width: TIME_WIDTH + 'px' }"/>
           <div v-for="room in dayData.rooms" :key="room" class="room-header" :style="{ width: CARD_WIDTH + 'px' }">
             {{ room }}
           </div>
@@ -188,40 +231,41 @@ const nowTop = computed(() => {
           </div>
 
           <!-- session area -->
-          <div class="session-area" :style="{ width: (dayData.rooms.length * CARD_WIDTH) + 'px', height: dayData.totalHeight + 'px' }">
-            <div v-for="(top, i) in dayData.slotTops" :key="i" class="slot-line" :style="{ top: top + 'px' }" />
-            <div v-for="(_, i) in dayData.rooms" :key="i" class="col-line" :style="{ left: (i * CARD_WIDTH) + 'px' }" />
+          <div class="session-area"
+               :style="{ width: (dayData.rooms.length * CARD_WIDTH) + 'px', height: dayData.totalHeight + 'px' }">
+            <div v-for="(top, i) in dayData.slotTops" :key="i" class="slot-line" :style="{ top: top + 'px' }"/>
+            <div v-for="(_, i) in dayData.rooms" :key="i" class="col-line" :style="{ left: (i * CARD_WIDTH) + 'px' }"/>
 
             <!-- break banners -->
             <div
-              v-for="b in dayData.breakBanners" :key="'break-' + b.start_time"
-              class="break-banner"
-              :style="{ top: b.top + 'px', height: b.height + 'px', width: (dayData.rooms.length * CARD_WIDTH) + 'px' }"
+                v-for="b in dayData.breakBanners" :key="'break-' + b.start_time"
+                class="break-banner"
+                :style="{ top: b.top + 'px', height: b.height + 'px', width: (dayData.rooms.length * CARD_WIDTH) + 'px' }"
             >
               {{ b.title }} · {{ fmt(b.start_time) }} – {{ fmt(b.end_time) }}
             </div>
 
             <!-- current time indicator -->
             <div v-if="nowTop !== null" class="now-line" :style="{ top: nowTop + 'px' }">
-              <div class="now-dot" />
+              <div class="now-dot"/>
             </div>
 
             <!-- session cards -->
             <div
-              v-for="s in dayData.cards" :key="s.id"
-              class="session-card"
-              :class="{ bookmarked: store.bookmarkedIds.has(s.id), conflict: dayData.conflictIds.has(s.id), wide: s.span > 1 }"
-              :style="{
+                v-for="s in dayData.cards" :key="s.id"
+                class="session-card"
+                :class="{ bookmarked: store.bookmarkedIds.has(s.id), conflict: dayData.conflictIds.has(s.id), wide: s.span > 1 }"
+                :style="{
                 top:    s.top + 'px',
                 height: s.height + 'px',
                 left:   (s.col * CARD_WIDTH + 4) + 'px',
                 width:  (s.span * CARD_WIDTH - 8) + 'px',
                 '--format-color': s.format_color ?? '#e5e7eb',
               }"
-              @click="selectedSession = s"
+                @click="selectedSession = s"
             >
               <!-- left accent bar -->
-              <div class="accent-bar" />
+              <div class="accent-bar"/>
 
               <!-- time + format -->
               <div class="card-top">
@@ -241,9 +285,9 @@ const nowTop = computed(() => {
               <div class="card-tags">
                 <span v-if="s.track" class="track-tag">{{ s.track }}</span>
                 <span
-                  v-if="s.audience_level"
-                  class="level-tag"
-                  :style="{
+                    v-if="s.audience_level"
+                    class="level-tag"
+                    :style="{
                     background: (LEVEL_STYLE[s.audience_level] ?? {}).bg ?? '#f3f4f6',
                     color:      (LEVEL_STYLE[s.audience_level] ?? {}).color ?? '#374151',
                   }"
@@ -257,7 +301,7 @@ const nowTop = computed(() => {
                   <span v-if="s.total_favourites" class="fav-count">{{ s.total_favourites }}</span>
                 </button>
                 <span class="room-tag">📍 {{ s.span > 1 ? `${s.span} salles` : s.room }}</span>
-                <span v-if="dayData.conflictIds.has(s.id)" class="conflict-dot" title="Conflit dans ton agenda" />
+                <span v-if="dayData.conflictIds.has(s.id)" class="conflict-dot" title="Conflit dans ton agenda"/>
               </div>
             </div>
           </div>
@@ -265,12 +309,16 @@ const nowTop = computed(() => {
       </div>
     </div>
 
-    <SessionModal :session="selectedSession" @close="selectedSession = null" />
+    <SessionModal :session="selectedSession" @close="selectedSession = null"/>
   </div>
 </template>
 
 <style scoped>
-.timeline-root { display: flex; flex-direction: column; height: 100%; }
+.timeline-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 
 /* nav */
 .nav-bar {
@@ -285,7 +333,10 @@ const nowTop = computed(() => {
   z-index: 30;
 }
 
-.day-tabs { display: flex; gap: 0.4rem; }
+.day-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
 
 .day-tab {
   padding: 0.4rem 1rem;
@@ -297,65 +348,136 @@ const nowTop = computed(() => {
   cursor: pointer;
   color: #374151;
 }
-.day-tab.active { background: #3b82f6; border-color: #3b82f6; color: white; }
 
-.nav-arrows { display: flex; gap: 0.25rem; margin-left: 0.25rem; }
+.day-tab.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.nav-arrows {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: 0.25rem;
+}
+
 .arrow-btn {
-  width: 32px; height: 32px;
+  width: 32px;
+  height: 32px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   background: #3b82f6;
   color: white;
   font-size: 1.1rem;
   cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.arrow-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: default; }
+
+.arrow-btn:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: default;
+}
 
 /* scroll */
-.scroll-outer { flex: 1; overflow-x: auto; overflow-y: auto; cursor: grab; }
+.scroll-outer {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  cursor: grab;
+}
 
-.grid-root { min-width: max-content; }
+.grid-root {
+  min-width: max-content;
+}
 
 /* sticky room headers */
 .header-row {
   display: flex;
-  position: sticky; top: 0; z-index: 20;
+  position: sticky;
+  top: 0;
+  z-index: 20;
   background: white;
   border-bottom: 2px solid #e5e7eb;
 }
-.time-gutter-header { flex-shrink: 0; border-right: 1px solid #e5e7eb; }
+
+.time-gutter-header {
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+}
+
 .room-header {
   flex-shrink: 0;
   padding: 0.5rem 0.5rem;
-  font-size: 0.72rem; font-weight: 700; color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6b7280;
   text-align: center;
   border-right: 1px solid #f3f4f6;
   box-sizing: border-box;
 }
 
 /* body */
-.body-row { display: flex; }
-.time-gutter { position: relative; flex-shrink: 0; border-right: 1px solid #e5e7eb; }
-.time-label {
-  position: absolute; right: 6px;
-  font-size: 0.68rem; color: #9ca3af;
-  transform: translateY(-50%); white-space: nowrap;
+.body-row {
+  display: flex;
 }
 
-.session-area { position: relative; }
-.slot-line { position: absolute; left: 0; right: 0; height: 1px; background: #f3f4f6; pointer-events: none; }
-.col-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #f3f4f6; pointer-events: none; }
+.time-gutter {
+  position: relative;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+}
+
+.time-label {
+  position: absolute;
+  right: 6px;
+  font-size: 0.68rem;
+  color: #9ca3af;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+.session-area {
+  position: relative;
+}
+
+.slot-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #f3f4f6;
+  pointer-events: none;
+}
+
+.col-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #f3f4f6;
+  pointer-events: none;
+}
 
 /* break banner */
 .break-banner {
-  position: absolute; left: 0;
+  position: absolute;
+  left: 0;
   background: #f9fafb;
-  border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.72rem; font-weight: 600; color: #9ca3af;
-  text-transform: uppercase; letter-spacing: 0.05em;
-  pointer-events: none; z-index: 1;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* session card */
@@ -366,95 +488,182 @@ const nowTop = computed(() => {
   background: white;
   padding: 6px 8px 6px 12px;
   cursor: pointer;
-  display: flex; flex-direction: column; gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   overflow: hidden;
   box-sizing: border-box;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: box-shadow 0.15s;
   z-index: 3;
 }
-.session-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); z-index: 6; }
-.session-card.wide { z-index: 4; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 
-.session-card.bookmarked { background: #eff6ff; border-color: #93c5fd; }
-.session-card.conflict   { border-color: #fca5a5; }
+.session-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  z-index: 6;
+}
+
+.session-card.wide {
+  z-index: 4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.session-card.bookmarked {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.session-card.conflict {
+  border-color: #db7e7e;
+  border-width: 2px;
+}
 
 /* left accent bar */
 .accent-bar {
-  position: absolute; left: 0; top: 0; bottom: 0;
-  width: 4px; border-radius: 8px 0 0 8px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 8px 0 0 8px;
   background: var(--format-color, #e5e7eb);
 }
 
 .card-top {
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-.card-time { font-size: 0.65rem; color: #6b7280; white-space: nowrap; }
+
+.card-time {
+  font-size: 0.65rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
 
 .format-badge {
-  font-size: 0.6rem; font-weight: 700;
-  padding: 1px 6px; border-radius: 4px;
-  color: rgba(0,0,0,0.65);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: rgba(0, 0, 0, 0.65);
   white-space: nowrap;
 }
 
 .card-title {
-  font-size: 0.82rem; font-weight: 700;
-  line-height: 1.25; margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
   overflow: hidden;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
   color: #111827;
 }
 
 .card-speakers {
-  font-size: 0.7rem; color: #6b7280; margin: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: auto;
+}
 
 .track-tag {
-  font-size: 0.58rem; color: #374151;
-  background: #f3f4f6; padding: 1px 5px; border-radius: 3px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+  font-size: 0.58rem;
+  color: #374151;
+  background: #f3f4f6;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 .level-tag {
-  font-size: 0.58rem; font-weight: 700;
-  padding: 1px 5px; border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
   white-space: nowrap;
 }
 
 .card-footer {
-  display: flex; align-items: center; gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 2px;
 }
 
 .heart-btn {
-  display: flex; align-items: center; gap: 3px;
-  border: none; background: none; cursor: pointer;
-  font-size: 0.78rem; color: #9ca3af; padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  padding: 0;
 }
-.session-card.bookmarked .heart-btn { color: #f97316; }
-.fav-count { font-size: 0.68rem; }
 
-.room-tag { font-size: 0.65rem; color: #9ca3af; margin-left: auto; white-space: nowrap; }
+.session-card.bookmarked .heart-btn {
+  color: #f97316;
+}
+
+.fav-count {
+  font-size: 0.68rem;
+}
+
+.room-tag {
+  font-size: 0.65rem;
+  color: #9ca3af;
+  margin-left: auto;
+  white-space: nowrap;
+}
 
 .conflict-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #ef4444; flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
 }
 
-.empty { text-align: center; color: #9ca3af; padding: 3rem; }
+.empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 3rem;
+}
 
 .now-line {
-  position: absolute; left: 0; right: 0;
-  height: 2px; background: #ef4444;
-  pointer-events: none; z-index: 5;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #ef4444;
+  pointer-events: none;
+  z-index: 5;
 }
+
 .now-dot {
-  position: absolute; left: -5px; top: -4px;
-  width: 10px; height: 10px; border-radius: 50%;
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   background: #ef4444;
 }
 </style>
