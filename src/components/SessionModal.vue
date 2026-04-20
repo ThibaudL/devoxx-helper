@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useSessionsStore } from '../stores/sessions'
+import RoomTag from './RoomTag.vue'
 
 const props = defineProps({
   session: { type: Object, default: null },
@@ -56,7 +57,7 @@ function onOverlayClick(e) {
           <div class="meta">
             <span>📅 {{ DAY_LABELS[session.day] }}</span>
             <span>🕐 {{ formatRange(session.start_time, session.end_time) }}</span>
-            <span v-if="session.room">📍 {{ session.room }}</span>
+            <RoomTag v-if="session.room" :room="session.room" />
           </div>
         </div>
 
@@ -160,7 +161,7 @@ function onOverlayClick(e) {
 .badge.lang   { background: var(--surface-subtle); color: var(--text-2); }
 
 h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-1); line-height: 1.3; margin: 0; }
-.meta { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.82rem; color: var(--text-3); }
+.meta { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.82rem; color: var(--text-3); align-items: center; }
 
 .speakers {
   display: flex; flex-direction: column; gap: 1rem;

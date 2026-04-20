@@ -3,6 +3,8 @@ import {computed, onUnmounted, ref} from 'vue'
 import {useSessionsStore} from '../stores/sessions'
 import {useSharingStore} from '../stores/sharing'
 import {LEVEL_STYLE} from '../utils/sessionTags'
+import {getRoomColor} from '../utils/roomColors'
+import RoomTag from '../components/RoomTag.vue'
 import SessionModal from '../components/SessionModal.vue'
 
 const store = useSessionsStore()
@@ -287,7 +289,11 @@ function onAvatarError(event, profile) {
 
         <!-- sticky header -->
         <div class="header-row" :style="{ width: totalWidth + 'px' }">
-          <div v-for="room in dayData.rooms" :key="room" class="room-header" :style="{ width: CARD_WIDTH + 'px' }">
+          <div
+            v-for="room in dayData.rooms" :key="room" class="room-header"
+            :style="{ width: CARD_WIDTH + 'px', color: getRoomColor(room).color, borderBottomColor: getRoomColor(room).border }"
+          >
+            <span class="room-dot" :style="{ background: getRoomColor(room).dot }" />
             {{ room }}
           </div>
         </div>
@@ -388,7 +394,8 @@ function onAvatarError(event, profile) {
                   </div>
                   <span v-if="sharing.getFriendsForSession(s.id).length > 3" class="friend-overflow">+{{ sharing.getFriendsForSession(s.id).length - 3 }}</span>
                 </div>
-                <span class="room-tag">📍 {{ s.span > 1 ? `${s.span} salles` : s.room }}</span>
+                <RoomTag v-if="s.span <= 1 && s.room" :room="s.room" />
+                <span v-else-if="s.span > 1" class="room-tag">📍 {{ s.span }} salles</span>
                 <span v-if="dayData.conflictIds.has(s.id)" class="conflict-dot" title="Conflit dans ton agenda"/>
               </div>
             </div>
@@ -469,10 +476,14 @@ function onAvatarError(event, profile) {
   box-shadow: var(--shadow-sm);
 }
 .time-gutter-header { flex-shrink: 0; border-right: 1px solid var(--border); background: var(--surface-subtle); }
+.room-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
 .room-header {
   flex-shrink: 0; padding: 0.75rem 0.5rem;
-  font-size: 0.75rem; font-weight: 700; color: var(--text-3);
-  text-align: center; border-right: 1px solid var(--border-faint);
+  font-size: 0.75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  border-right: 1px solid var(--border-faint); border-bottom: 2px solid;
   box-sizing: border-box;
   text-transform: uppercase; letter-spacing: 0.05em;
 }
@@ -595,7 +606,10 @@ function onAvatarError(event, profile) {
 .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .friend-overflow { font-size: 0.625rem; font-weight: 600; color: var(--text-4); margin-left: 0.125rem; }
 
-.room-tag { font-size: 0.6875rem; font-weight: 600; color: var(--text-4); margin-left: auto; white-space: nowrap; }
+.room-tag {
+  font-size: 0.6875rem; font-weight: 600; white-space: nowrap; margin-left: auto;
+  color: var(--text-4);
+}
 
 .conflict-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #ef4444; flex-shrink: 0; box-shadow: 0 0 0 2px var(--surface); }
 

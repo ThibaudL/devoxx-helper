@@ -5,6 +5,9 @@ import { useAuthStore } from '../stores/auth'
 import { useSessionsStore } from '../stores/sessions'
 import { useSharingStore } from '../stores/sharing'
 import { useDarkMode } from '../composables/useDarkMode'
+import { usePlanModal } from '../composables/usePlanModal'
+import RoomTag from '../components/RoomTag.vue'
+
 import SessionCard from '../components/SessionCard.vue'
 import ShareModal from '../components/ShareModal.vue'
 import PlanModal from '../components/PlanModal.vue'
@@ -17,7 +20,7 @@ const store = useSessionsStore()
 const sharing = useSharingStore()
 const router = useRouter()
 const showShareModal = ref(false)
-const showPlanModal = ref(false)
+const { showPlanModal, openPlan, closePlan } = usePlanModal()
 const { dark, toggle: toggleDark } = useDarkMode()
 
 const search = ref('')
@@ -208,7 +211,7 @@ async function handleSignOut() {
               @click="showProfileModal = true"
               title="Analyser mon profil"
             ><span>🧠</span> <span class="btn-text">Mon profil</span></button>
-            <button class="btn btn-secondary btn-icon" @click="showPlanModal = true" title="Plan">
+            <button class="btn btn-secondary btn-icon" @click="openPlan()" title="Plan">
               <span>🗺</span> <span class="btn-text">Plan</span>
             </button>
             <button class="btn btn-primary btn-icon" @click="showShareModal = true" title="Partager">
@@ -261,8 +264,10 @@ async function handleSignOut() {
             <div class="now-card-time">{{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}</div>
             <div class="now-card-title">{{ s.title }}</div>
             <div class="now-card-meta">
-              <span v-if="s._rooms?.length">📍 {{ s._rooms.join(', ') }}</span>
-              <span v-else-if="s.room">📍 {{ s.room }}</span>
+              <template v-if="s._rooms?.length">
+                <RoomTag v-for="r in s._rooms" :key="r" :room="r" />
+              </template>
+              <RoomTag v-else-if="s.room" :room="s.room" />
               <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
             </div>
             <div class="now-card-badges">
@@ -303,8 +308,10 @@ async function handleSignOut() {
           >
             <div class="now-card-title">{{ s.title }}</div>
             <div class="now-card-meta">
-              <span v-if="s._rooms?.length">📍 {{ s._rooms.join(', ') }}</span>
-              <span v-else-if="s.room">📍 {{ s.room }}</span>
+              <template v-if="s._rooms?.length">
+                <RoomTag v-for="r in s._rooms" :key="r" :room="r" />
+              </template>
+              <RoomTag v-else-if="s.room" :room="s.room" />
               <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
             </div>
             <div class="now-card-badges">
@@ -379,7 +386,7 @@ async function handleSignOut() {
   </div>
 
   <ShareModal v-if="showShareModal" @close="showShareModal = false" />
-  <PlanModal v-if="showPlanModal" @close="showPlanModal = false" />
+  <PlanModal v-if="showPlanModal" @close="closePlan" />
   <KeywordFilterModal
     v-if="showKeywordModal"
     :groups="keywordGroups"
@@ -720,6 +727,7 @@ header {
 .now-card-meta {
   font-size: 0.8125rem;
   color: var(--text-2);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
 }
 
 .now-card-badges {

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useSessionsStore } from '../stores/sessions'
 import { LEVEL_STYLE } from '../utils/sessionTags'
+import RoomTag from './RoomTag.vue'
 import SessionModal from './SessionModal.vue'
 
 const props = defineProps({
@@ -54,7 +55,10 @@ function initials(p) {
     </div>
 
     <div class="card-footer">
-      <span class="room">{{ session._rooms ? session._rooms.join(' · ') : session.room }}</span>
+      <template v-if="session._rooms?.length">
+        <RoomTag v-for="r in session._rooms" :key="r" :room="r" />
+      </template>
+      <RoomTag v-else-if="session.room" :room="session.room" />
       <div v-if="friends.length" class="friend-avatars">
         <div
           v-for="(f, i) in friends.slice(0, 3)" :key="i"
@@ -220,19 +224,6 @@ h3 {
   border-top: 1px solid var(--border-faint);
 }
 
-.room {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-3);
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.room::before {
-  content: '📍';
-  font-size: 0.75rem;
-}
 
 .friend-avatars {
   display: flex;

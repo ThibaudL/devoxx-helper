@@ -1,9 +1,18 @@
 <script setup>
 import { ref } from 'vue'
 import { useSharingStore } from '../stores/sharing'
+import { useSessionsStore } from '../stores/sessions'
+import { useAuthStore } from '../stores/auth'
 
 const emit = defineEmits(['close'])
 const sharing = useSharingStore()
+const sessions = useSessionsStore()
+const auth = useAuthStore()
+
+function bookmarkCount(userId) {
+  if (userId === auth.user?.id) return sessions.bookmarkedIds.size
+  return sharing.friendBookmarks.get(userId)?.size ?? 0
+}
 
 const newTeamName = ref('')
 const creatingTeam = ref(false)
@@ -90,6 +99,9 @@ function initials(p) {
               <span class="person-name">{{ m.profile?.full_name || m.profile?.email }}</span>
               <span class="person-email">{{ m.profile?.email }}</span>
             </div>
+            <span class="bookmark-count" :title="`${bookmarkCount(m.user_id)} favori(s)`">
+              ★ {{ bookmarkCount(m.user_id) }}
+            </span>
           </li>
         </ul>
 
@@ -198,7 +210,19 @@ function initials(p) {
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-.person-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.person-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+
+.bookmark-count {
+  margin-left: auto;
+  font-size: 0.75rem; font-weight: 700;
+  color: #f59e0b;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .person-name { font-size: 0.82rem; font-weight: 600; color: var(--text-1); }
 .person-email { font-size: 0.7rem; color: var(--text-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
