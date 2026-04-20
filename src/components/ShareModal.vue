@@ -14,6 +14,22 @@ const inviteError = ref({})   // { [teamId]: string }
 const inviteOk    = ref({})   // { [teamId]: string }
 const inviting    = ref({})   // { [teamId]: bool }
 
+const linkCopied  = ref({})   // { [teamId]: bool }
+const linkError   = ref({})   // { [teamId]: string }
+
+async function copyInviteLink(teamId) {
+  linkCopied.value = { ...linkCopied.value, [teamId]: false }
+  linkError.value  = { ...linkError.value,  [teamId]: '' }
+  try {
+    const url = await sharing.generateInviteLink(teamId)
+    await navigator.clipboard.writeText(url)
+    linkCopied.value = { ...linkCopied.value, [teamId]: true }
+    setTimeout(() => { linkCopied.value = { ...linkCopied.value, [teamId]: false } }, 2500)
+  } catch (e) {
+    linkError.value = { ...linkError.value, [teamId]: e.message }
+  }
+}
+
 async function submitCreateTeam() {
   createError.value = ''
   creatingTeam.value = true
@@ -76,6 +92,14 @@ function initials(p) {
             </div>
           </li>
         </ul>
+
+        <!-- Copy invite link -->
+        <div class="link-row">
+          <button class="link-btn" @click="copyInviteLink(team.id)">
+            {{ linkCopied[team.id] ? 'Lien copié !' : 'Copier le lien d\'invitation' }}
+          </button>
+          <p v-if="linkError[team.id]" class="msg error">{{ linkError[team.id] }}</p>
+        </div>
 
         <!-- Invite to this team -->
         <form class="invite-row" @submit.prevent="submitInvite(team.id)">
@@ -177,6 +201,16 @@ function initials(p) {
 .person-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .person-name { font-size: 0.82rem; font-weight: 600; color: var(--text-1); }
 .person-email { font-size: 0.7rem; color: var(--text-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.link-row { display: flex; flex-direction: column; gap: 0.25rem; }
+.link-btn {
+  align-self: flex-start;
+  padding: 0.35rem 0.8rem;
+  background: var(--surface-subtle); color: var(--text-2);
+  border: 1px solid var(--border); border-radius: 7px;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.link-btn:hover { background: var(--border); }
 
 .invite-row { display: flex; gap: 0.4rem; margin-top: 0.25rem; }
 .email-input {

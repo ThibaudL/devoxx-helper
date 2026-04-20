@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 
 const routes = [
   { path: '/login', component: () => import('../views/LoginView.vue'), meta: { public: true } },
+  { path: '/invite/:token', component: () => import('../views/InviteView.vue'), meta: { public: true } },
   { path: '/', component: () => import('../views/AgendaView.vue') },
   { path: '/import', component: () => import('../views/ImportView.vue') },
 ]

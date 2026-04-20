@@ -107,6 +107,29 @@ export const useSharingStore = defineStore('sharing', () => {
     await fetchTeams()
   }
 
+  async function generateInviteLink(teamId) {
+    const { data, error } = await supabase
+      .from('team_invites')
+      .insert({ team_id: teamId, created_by: auth.user.id })
+      .select('token')
+      .single()
+    if (error) throw error
+    return `${window.location.origin}/invite/${data.token}`
+  }
+
+  async function joinTeamByToken(token) {
+    const { data, error } = await supabase.rpc('join_team_by_token', { p_token: token })
+    if (error) throw error
+    await fetchTeams()
+    return data
+  }
+
+  async function getInviteInfo(token) {
+    const { data, error } = await supabase.rpc('get_invite_info', { p_token: token })
+    if (error) throw error
+    return data?.[0] ?? null
+  }
+
   async function leaveTeam(teamId) {
     await supabase
       .from('team_members')
@@ -143,6 +166,9 @@ export const useSharingStore = defineStore('sharing', () => {
     fetchFriendBookmarks,
     createTeam,
     inviteToTeam,
+    generateInviteLink,
+    joinTeamByToken,
+    getInviteInfo,
     leaveTeam,
     getFriendsForSession,
   }
