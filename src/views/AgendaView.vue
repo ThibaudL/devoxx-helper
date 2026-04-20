@@ -59,8 +59,28 @@ const showNowPanel = ref(false)
 
 const currentSessions = computed(() => {
   const t = now.value
-  return store.sessions.filter(s =>
+  const current = store.sessions.filter(s =>
     !s.is_break && new Date(s.start_time) <= t && new Date(s.end_time) >= t
+  )
+
+  const groupRooms = new Map()
+  for (const s of current) {
+    if (s.group_key && s.room) {
+      if (!groupRooms.has(s.group_key)) groupRooms.set(s.group_key, [])
+      groupRooms.get(s.group_key).push(s.room)
+    }
+  }
+
+  const seenGroups = new Set()
+  return current.filter(s => {
+    if (s.group_key) {
+      if (seenGroups.has(s.group_key)) return false
+      seenGroups.add(s.group_key)
+    }
+    return true
+  }).map(s => s.group_key
+    ? { ...s, _rooms: groupRooms.get(s.group_key) ?? [s.room] }
+    : s
   )
 })
 
@@ -71,7 +91,27 @@ const nextSessions = computed(() => {
     .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
   if (!upcoming.length) return []
   const nextTime = upcoming[0].start_time
-  return upcoming.filter(s => s.start_time === nextTime)
+  const next = upcoming.filter(s => s.start_time === nextTime)
+
+  const groupRooms = new Map()
+  for (const s of next) {
+    if (s.group_key && s.room) {
+      if (!groupRooms.has(s.group_key)) groupRooms.set(s.group_key, [])
+      groupRooms.get(s.group_key).push(s.room)
+    }
+  }
+
+  const seenGroups = new Set()
+  return next.filter(s => {
+    if (s.group_key) {
+      if (seenGroups.has(s.group_key)) return false
+      seenGroups.add(s.group_key)
+    }
+    return true
+  }).map(s => s.group_key
+    ? { ...s, _rooms: groupRooms.get(s.group_key) ?? [s.room] }
+    : s
+  )
 })
 
 function fmtTime(iso) {
@@ -221,7 +261,8 @@ async function handleSignOut() {
             <div class="now-card-time">{{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}</div>
             <div class="now-card-title">{{ s.title }}</div>
             <div class="now-card-meta">
-              <span v-if="s.room">📍 {{ s.room }}</span>
+              <span v-if="s._rooms?.length">📍 {{ s._rooms.join(', ') }}</span>
+              <span v-else-if="s.room">📍 {{ s.room }}</span>
               <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
             </div>
             <div class="now-card-badges">
@@ -262,7 +303,8 @@ async function handleSignOut() {
           >
             <div class="now-card-title">{{ s.title }}</div>
             <div class="now-card-meta">
-              <span v-if="s.room">📍 {{ s.room }}</span>
+              <span v-if="s._rooms?.length">📍 {{ s._rooms.join(', ') }}</span>
+              <span v-else-if="s.room">📍 {{ s.room }}</span>
               <span v-if="s.speakers.length">· {{ s.speakers.join(', ') }}</span>
             </div>
             <div class="now-card-badges">
