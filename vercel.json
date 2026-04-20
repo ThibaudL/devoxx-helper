@@ -1,6 +1,10 @@
 {
   "routes": [
     { "handle": "filesystem" },
+    {
+      "src": "/api/schedule/(.*)",
+      "dest": "https://devoxxfr2026.cfp.dev/api/public/schedules/$1"
+    },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
