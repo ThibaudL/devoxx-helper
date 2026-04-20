@@ -20,6 +20,9 @@ const DAYS = [
 const activeDay = ref('wednesday')
 const activeDayIdx = computed(() => DAYS.findIndex(d => d.value === activeDay.value))
 
+const onlyBookmarked = ref(false)
+const onlyFriendBookmarked = ref(false)
+
 function prevDay() {
   if (activeDayIdx.value > 0) activeDay.value = DAYS[activeDayIdx.value - 1].value
 }
@@ -150,6 +153,7 @@ const dayData = computed(() => {
       height: s.is_break ? Math.max(bottom - top, 22) : rawHeight,
       col: rooms.indexOf(s.room),
       bookmarked: store.bookmarkedIds.has(s.id),
+      friendBookmarked: sharing.allFriendBookmarkedIds.has(s.id),
       startMin, endMin,
     }
   })
@@ -157,7 +161,7 @@ const dayData = computed(() => {
   // Merge simulcasts: sessions sharing a group_key collapse into one card that
   // spans the columns of all the rooms it runs in.
   const groups = new Map()
-  const cards = []
+  let cards = []
   for (const s of withPos) {
     if (s.is_break) continue
     if (!s.group_key) {
@@ -179,11 +183,20 @@ const dayData = computed(() => {
       } else if (g.simulcast && !s.simulcast) {
         g.id = s.id;
         g.simulcast = false
+        g.bookmarked = s.bookmarked
+        g.friendBookmarked = s.friendBookmarked
       }
     }
   }
 
-  const bookmarkedList = cards.filter(s => store.bookmarkedIds.has(s.id))
+  if (onlyBookmarked.value) {
+    cards = cards.filter(c => c.bookmarked)
+  }
+  if (onlyFriendBookmarked.value) {
+    cards = cards.filter(c => c.friendBookmarked || c.bookmarked)
+  }
+
+  const bookmarkedList = cards.filter(s => s.bookmarked)
   const conflictIds = new Set()
   for (let i = 0; i < bookmarkedList.length; i++)
     for (let j = i + 1; j < bookmarkedList.length; j++) {
@@ -237,6 +250,21 @@ function onAvatarError(event, profile) {
         >{{ d.label }}
         </button>
       </div>
+
+      <div class="filter-controls">
+        <button
+          :class="['filter-btn', { active: onlyBookmarked }]"
+          @click="onlyBookmarked = !onlyBookmarked"
+          title="Mes bookmarks"
+        >★</button>
+        <button
+          v-if="sharing.teams.length"
+          :class="['filter-btn', 'friend-filter', { active: onlyFriendBookmarked }]"
+          @click="onlyFriendBookmarked = !onlyFriendBookmarked"
+          title="Favoris amis"
+        >👥</button>
+      </div>
+
       <div class="nav-arrows">
         <button class="arrow-btn" :disabled="activeDayIdx === 0" @click="prevDay">‹</button>
         <button class="arrow-btn" :disabled="activeDayIdx === DAYS.length - 1" @click="nextDay">›</button>
@@ -397,6 +425,22 @@ function onAvatarError(event, profile) {
 }
 .day-tab:hover { border-color: var(--text-4); background: var(--surface-subtle); }
 .day-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+.filter-controls { display: flex; gap: 0.5rem; }
+
+.filter-btn {
+  width: 2.25rem; height: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  font-size: 1.1rem;
+}
+.filter-btn:hover { border-color: var(--text-4); background: var(--surface-subtle); }
+.filter-btn.active { background: #f97316; border-color: #f97316; color: white; }
+.filter-btn.friend-filter.active { background: #8b5cf6; border-color: #8b5cf6; }
 
 .nav-controls { display: flex; align-items: center; gap: 1rem; }
 
