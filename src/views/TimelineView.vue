@@ -2,6 +2,7 @@
 import {computed, onUnmounted, ref} from 'vue'
 import {useSessionsStore} from '../stores/sessions'
 import {useSharingStore} from '../stores/sharing'
+import {useModalHistory} from '../composables/useModalHistory'
 import {LEVEL_STYLE} from '../utils/sessionTags'
 import {getRoomColor} from '../utils/roomColors'
 import RoomTag from '../components/RoomTag.vue'
@@ -34,6 +35,12 @@ function nextDay() {
 }
 
 const selectedSession = ref(null)
+
+const showSessionModal = computed({
+  get: () => !!selectedSession.value,
+  set: (val) => { if (!val) selectedSession.value = null }
+})
+useModalHistory(showSessionModal)
 
 // drag-scroll
 const scrollEl = ref(null)

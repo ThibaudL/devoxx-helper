@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useSessionsStore } from '../stores/sessions'
+import { useModalHistory } from '../composables/useModalHistory'
 import { LEVEL_STYLE } from '../utils/sessionTags'
 import RoomTag from './RoomTag.vue'
 import SessionModal from './SessionModal.vue'
@@ -13,6 +14,8 @@ const props = defineProps({
 const store = useSessionsStore()
 const isBookmarked = computed(() => store.bookmarkedIds.has(props.session.id))
 const showModal = ref(false)
+
+useModalHistory(showModal)
 
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })

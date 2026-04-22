@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSessionsStore } from '../stores/sessions'
 import { useSharingStore } from '../stores/sharing'
 import { useDarkMode } from '../composables/useDarkMode'
 import { usePlanModal } from '../composables/usePlanModal'
+import { useModalHistory } from '../composables/useModalHistory'
 import RoomTag from '../components/RoomTag.vue'
 
 import SessionCard from '../components/SessionCard.vue'
@@ -13,6 +14,7 @@ import ShareModal from '../components/ShareModal.vue'
 import PlanModal from '../components/PlanModal.vue'
 import KeywordFilterModal from '../components/KeywordFilterModal.vue'
 import ProfileModal from '../components/ProfileModal.vue'
+import SessionModal from '../components/SessionModal.vue'
 import TimelineView from './TimelineView.vue'
 
 const auth = useAuthStore()
@@ -29,6 +31,25 @@ const selectedTrack = ref('')
 const selectedKeywords = ref(new Set())
 const showKeywordModal = ref(false)
 const showProfileModal = ref(false)
+const selectedSession = ref(null)
+
+useModalHistory(showShareModal)
+useModalHistory(showKeywordModal)
+useModalHistory(showProfileModal)
+
+// For selectedSession, we need to adapt it since it's not a boolean
+const showSessionModal = computed({
+  get: () => !!selectedSession.value,
+  set: (val) => { if (!val) selectedSession.value = null }
+})
+useModalHistory(showSessionModal)
+
+// For plan modal which uses a composable
+const showPlanModalRef = computed({
+  get: () => showPlanModal.value,
+  set: (val) => { if (!val) closePlan() }
+})
+useModalHistory(showPlanModalRef)
 
 const bookmarkedKeywordsForProfile = computed(() =>
   [...new Set(store.sessions.filter(s => store.bookmarkedIds.has(s.id)).flatMap(s => s.keywords ?? []))]
@@ -40,6 +61,7 @@ function toggleKeyword(kw) {
   selectedKeywords.value = s
 }
 const onlyBookmarked = ref(false)
+const hidePastSessions = ref(true)
 const viewMode = ref('cards')
 
 const DAYS = [
@@ -175,6 +197,7 @@ const filtered = computed(() => {
     if (selectedKeywords.value.size && !s.keywords?.some(k => selectedKeywords.value.has(k))) return false
     if (onlyBookmarked.value && !store.bookmarkedIds.has(s.id)) return false
     if (onlyFriendBookmarked.value && !sharing.allFriendBookmarkedIds.has(s.id)) return false
+    if (hidePastSessions.value && new Date(s.end_time) < now.value) return false
     if (q && !s.title.toLowerCase().includes(q) && !s.speakers.join(' ').toLowerCase().includes(q)) return false
     if (s.group_key) {
       if (seenGroups.has(s.group_key)) return false
@@ -260,6 +283,7 @@ async function handleSignOut() {
               store.bookmarkedIds.has(s.id) && 'now-card--mine',
               !store.bookmarkedIds.has(s.id) && sharing.getFriendsForSession(s.id).length && 'now-card--team'
             ]"
+            @click="selectedSession = s"
           >
             <div class="now-card-time">{{ fmtTime(s.start_time) }} – {{ fmtTime(s.end_time) }}</div>
             <div class="now-card-title">{{ s.title }}</div>
@@ -305,6 +329,7 @@ async function handleSignOut() {
               store.bookmarkedIds.has(s.id) && 'now-card--mine',
               !store.bookmarkedIds.has(s.id) && sharing.getFriendsForSession(s.id).length && 'now-card--team'
             ]"
+            @click="selectedSession = s"
           >
             <div class="now-card-title">{{ s.title }}</div>
             <div class="now-card-meta">
@@ -370,6 +395,11 @@ async function handleSignOut() {
           >★ Mes bookmarks ({{ store.bookmarkedIds.size }})</button>
 
           <button
+            :class="['filter-btn', { active: hidePastSessions }]"
+            @click="hidePastSessions = !hidePastSessions"
+          >🕒 Masquer passés</button>
+
+          <button
             v-if="sharing.teams.length"
             :class="['filter-btn', 'friend-filter', { active: onlyFriendBookmarked }]"
             @click="onlyFriendBookmarked = !onlyFriendBookmarked"
@@ -400,6 +430,12 @@ async function handleSignOut() {
     v-if="showProfileModal"
     :keywords="bookmarkedKeywordsForProfile"
     @close="showProfileModal = false"
+  />
+
+  <SessionModal
+    :session="selectedSession"
+    :friends="selectedSession ? sharing.getFriendsForSession(selectedSession.id) : []"
+    @close="selectedSession = null"
   />
 </template>
 
@@ -702,6 +738,7 @@ header {
   padding: 1rem;
   background: var(--surface-subtle);
   transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
 }
 
 .now-card:hover {
