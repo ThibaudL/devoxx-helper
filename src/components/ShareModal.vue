@@ -270,4 +270,12 @@ function initials(p) {
 .add-btn:disabled { background: #93c5fd; cursor: default; }
 
 .empty-state { font-size: 0.85rem; color: var(--text-4); text-align: center; padding: 0.5rem 0; margin: 0; }
+
+@media (max-width: 480px) {
+  .overlay { padding: 0; }
+  .modal { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; padding: 1.25rem; gap: 1rem; }
+  .modal-header h2 { font-size: 1rem; }
+  .invite-row { flex-direction: column; }
+  .invite-btn { width: 100%; }
+}
 </style>

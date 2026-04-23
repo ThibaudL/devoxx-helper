@@ -129,4 +129,11 @@ function onOverlayClick(e) {
 .copy-btn:hover { filter: brightness(1.1); }
 .copy-btn.copied { background: #16a34a; }
 .empty { font-size: 0.88rem; color: var(--text-3); text-align: center; padding: 2rem 0; margin: 0; }
+
+@media (max-width: 580px) {
+  .overlay { padding: 0; }
+  .modal { height: 100%; max-height: 100vh; border-radius: 0; }
+  .copy-btn { align-self: stretch; padding: 0.75rem; }
+  .prompt-box { max-height: none; flex: 1; }
+}
 </style>

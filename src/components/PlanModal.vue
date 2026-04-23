@@ -503,9 +503,13 @@ function onClose() { closePlan(); emit('close') }
 
 
 @media (max-width: 768px) {
-  .modal-header { flex-direction: column; align-items: stretch; gap: 1rem; }
+  .overlay { padding: 0; }
+  .modal { height: 100%; max-height: 100vh; border-radius: 0; }
+  .modal-header { flex-direction: column; align-items: stretch; gap: 1rem; position: relative; padding-right: 3rem; }
   .tabs { overflow-x: auto; padding-bottom: 0.5rem; }
   .tab { flex: 0 0 auto; min-width: 140px; }
   .close-btn { position: absolute; top: 1rem; right: 1rem; }
+  .nav-panel { padding: 0.75rem 1rem; }
+  .nav-options { gap: 0.35rem; }
 }
 </style>

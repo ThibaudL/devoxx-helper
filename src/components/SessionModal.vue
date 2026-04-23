@@ -215,4 +215,32 @@ h2 { font-size: 1.2rem; font-weight: 700; color: var(--text-1); line-height: 1.3
   transition: background 0.15s, color 0.15s;
 }
 .bookmark-btn.active { background: #f97316; color: white; }
+
+@media (max-width: 640px) {
+  .overlay { padding: 0; }
+  .modal {
+    max-height: 100vh;
+    border-radius: 0;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .close-btn { top: 0.5rem; right: 0.5rem; }
+  .modal-header { gap: 0.4rem; }
+  h2 { font-size: 1.1rem; }
+  .meta { gap: 0.5rem; font-size: 0.75rem; }
+  .speakers, .description, .friends-section, .modal-footer { padding-top: 0.75rem; }
+  .speaker { gap: 0.5rem; }
+  .speaker-avatar { width: 40px; height: 40px; }
+  .speaker-bio { -webkit-line-clamp: 3; }
+  .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    margin: 0 -1rem -1rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    z-index: 5;
+  }
+  .bookmark-btn { width: 100%; padding: 0.75rem; }
+}
 </style>

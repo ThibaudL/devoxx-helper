@@ -116,4 +116,9 @@ function onOverlayClick(e) {
 .kw-btn.active { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
 .kw-btn.bookmarked { border-color: #f97316; color: #f97316; background: color-mix(in srgb, #f97316 8%, var(--surface)); }
 .kw-star { font-size: 0.65rem; margin-right: 0.2rem; }
+
+@media (max-width: 600px) {
+  .overlay { padding: 0; }
+  .modal { height: 100%; max-height: 100vh; border-radius: 0; }
+}
 </style>

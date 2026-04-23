@@ -160,7 +160,6 @@ const dayData = computed(() => {
       ...s,
       top,
       height: s.is_break ? Math.max(bottom - top, 22) : rawHeight,
-      col: rooms.indexOf(s.room),
       bookmarked: store.bookmarkedIds.has(s.id),
       friendBookmarked: sharing.allFriendBookmarkedIds.has(s.id),
       startMin, endMin,
@@ -174,19 +173,16 @@ const dayData = computed(() => {
   for (const s of withPos) {
     if (s.is_break) continue
     if (!s.group_key) {
-      cards.push({...s, span: 1});
+      cards.push({...s, rooms: [s.room]});
       continue
     }
     const g = groups.get(s.group_key)
     if (!g) {
-      const card = {...s, span: 1, minCol: s.col, maxCol: s.col}
+      const card = {...s, rooms: [s.room]}
       groups.set(s.group_key, card)
       cards.push(card)
     } else {
-      g.minCol = Math.min(g.minCol, s.col)
-      g.maxCol = Math.max(g.maxCol, s.col)
-      g.col = g.minCol
-      g.span = g.maxCol - g.minCol + 1
+      if (!g.rooms.includes(s.room)) g.rooms.push(s.room)
       // prefer a real id over a placeholder so bookmarks still work
       if (!g.simulcast && s.simulcast) { /* keep g */
       } else if (g.simulcast && !s.simulcast) {
@@ -205,28 +201,68 @@ const dayData = computed(() => {
     cards = cards.filter(c => c.friendBookmarked || c.bookmarked)
   }
 
-  const bookmarkedList = cards.filter(s => s.bookmarked)
-  const conflictIds = new Set()
-  for (let i = 0; i < bookmarkedList.length; i++)
-    for (let j = i + 1; j < bookmarkedList.length; j++) {
-      const a = bookmarkedList[i], b = bookmarkedList[j]
-      if (a.startMin < b.endMin && b.startMin < a.endMin) {
-        conflictIds.add(a.id);
-        conflictIds.add(b.id)
+  const common = {timeMarks, slotTops, totalHeight, dayStartMin, dayEndMin, minToPixel}
+
+  const computeExtra = (filteredCards, filteredRooms) => {
+    const bookmarkedList = filteredCards.filter(s => s.bookmarked)
+    const conflictIds = new Set()
+    for (let i = 0; i < bookmarkedList.length; i++)
+      for (let j = i + 1; j < bookmarkedList.length; j++) {
+        const a = bookmarkedList[i], b = bookmarkedList[j]
+        if (a.startMin < b.endMin && b.startMin < a.endMin) {
+          conflictIds.add(a.id);
+          conflictIds.add(b.id)
+        }
+      }
+
+    const breakBanners = []
+    const seenBreaks = new Map()
+    for (const s of withPos) {
+      if (!s.is_break) continue
+      if (!seenBreaks.has(s.start_time)) {
+        seenBreaks.set(s.start_time, s);
+        breakBanners.push(s)
+      }
+    }
+    return { conflictIds, breakBanners }
+  }
+
+  if (onlyBookmarked.value || onlyFriendBookmarked.value) {
+    // Determine rooms that actually have cards
+    const activeRooms = new Set()
+    for (const c of cards) {
+      for (const r of c.rooms) activeRooms.add(r)
+    }
+    const filteredRooms = rooms.filter(r => activeRooms.has(r))
+
+    // Update cards with column and span based on filteredRooms
+    for (const c of cards) {
+      const indices = c.rooms.map(r => filteredRooms.indexOf(r)).filter(idx => idx !== -1).sort((a, b) => a - b)
+      if (indices.length) {
+        c.col = indices[0]
+        c.span = indices[indices.length - 1] - indices[0] + 1
+      } else {
+        c.col = -1
+        c.span = 0
+      }
+    }
+    cards = cards.filter(c => c.col !== -1)
+
+    const extra = computeExtra(cards, filteredRooms)
+    return {rooms: filteredRooms, cards, ...extra, ...common}
+  } else {
+    // Original logic for all rooms
+    for (const c of cards) {
+      const indices = c.rooms.map(r => rooms.indexOf(r)).filter(idx => idx !== -1).sort((a, b) => a - b)
+      if (indices.length) {
+        c.col = indices[0]
+        c.span = indices[indices.length - 1] - indices[0] + 1
       }
     }
 
-  const breakBanners = []
-  const seenBreaks = new Map()
-  for (const s of withPos) {
-    if (!s.is_break) continue
-    if (!seenBreaks.has(s.start_time)) {
-      seenBreaks.set(s.start_time, s);
-      breakBanners.push(s)
-    }
+    const extra = computeExtra(cards, rooms)
+    return {rooms, cards, ...extra, ...common}
   }
-
-  return {rooms, timeMarks, slotTops, totalHeight, cards, conflictIds, breakBanners, dayStartMin, dayEndMin, minToPixel}
 })
 
 const totalWidth = computed(() => dayData.value ? dayData.value.rooms.length * CARD_WIDTH : 0)
@@ -256,7 +292,9 @@ function onAvatarError(event, profile) {
             v-for="d in DAYS" :key="d.value"
             :class="['day-tab', { active: activeDay === d.value }]"
             @click="activeDay = d.value"
-        >{{ d.label }}
+        >
+          <span class="day-label-full">{{ d.label }}</span>
+          <span class="day-label-short">{{ d.short }}</span>
         </button>
       </div>
 
@@ -436,9 +474,24 @@ function onAvatarError(event, profile) {
   font-size: 0.875rem; font-weight: 600;
   cursor: pointer; color: var(--text-2);
   transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
 }
 .day-tab:hover { border-color: var(--text-4); background: var(--surface-subtle); }
 .day-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+.day-label-short { display: none; }
+
+@media (max-width: 768px) {
+  .nav-bar { padding: 0.5rem; gap: 0.25rem; }
+  .day-tabs { gap: 0.125rem; }
+  .day-tab { padding: 0.4rem 0.6rem; font-size: 0.75rem; }
+  .day-label-full { display: none; }
+  .day-label-short { display: inline; }
+  .filter-btn, .arrow-btn { width: 1.85rem; height: 1.85rem; font-size: 0.9rem; }
+  .filter-controls { gap: 0.25rem; }
+  .nav-arrows { gap: 0.125rem; }
+  .nav-arrows { display: none; } /* Hide arrows on mobile to save space, user can tap tabs */
+}
 
 .filter-controls { display: flex; gap: 0.5rem; }
 

@@ -610,7 +610,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .view-toggle {
@@ -900,21 +900,38 @@ select {
   .header-content {
     flex-direction: column;
     align-items: stretch;
+    gap: 1rem;
   }
   
   .user-actions {
     justify-content: space-between;
+    gap: 0.5rem;
   }
+
+  .action-group { gap: 0.35rem; }
 
   .btn-text {
     display: none;
   }
 
   .btn-icon {
-    padding: 0.5rem;
-    width: 2.5rem;
-    height: 2.5rem;
+    padding: 0;
+    width: 2.25rem;
+    height: 2.25rem;
     justify-content: center;
   }
+
+  .user-profile { gap: 0.5rem; }
+  .user-details { display: none; }
+
+  .toolbar { flex-direction: column; gap: 0.75rem; align-items: stretch; }
+  .view-toggle { width: 100%; }
+  .view-btn { flex: 1; padding: 0.4rem; }
+  .now-btn { justify-content: center; }
+
+  .filters { gap: 0.75rem; }
+  .filter-row { gap: 0.5rem; }
+  .filter-btn { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+  select { padding: 0.4rem 1.75rem 0.4rem 0.75rem; font-size: 0.8rem; }
 }
 </style>
