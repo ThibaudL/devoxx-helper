@@ -11,9 +11,12 @@ import SessionModal from '../components/SessionModal.vue'
 const store = useSessionsStore()
 const sharing = useSharingStore()
 
-const PX_PER_MIN = 8
-const LUNCH_PX_PER_MIN = 14
-const CARD_WIDTH = 260
+const scaleX = ref(1)
+const scaleY = ref(1)
+
+const PX_PER_MIN = computed(() => 8 * scaleY.value)
+const LUNCH_PX_PER_MIN = computed(() => 14 * scaleY.value)
+const CARD_WIDTH = computed(() => 260 * scaleX.value)
 
 const DAYS = [
   {value: 'wednesday', label: 'Mercredi', short: 'Mer'},
@@ -87,6 +90,41 @@ function onMouseUp() {
   }
 }
 
+// Pinch zoom
+let initialDist = 0
+let initialScaleX = 1
+let initialScaleY = 1
+
+function onTouchStart(e) {
+  if (e.touches.length === 2) {
+    initialDist = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+    )
+    initialScaleX = scaleX.value
+    initialScaleY = scaleY.value
+  }
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 2) {
+    if (e.cancelable) e.preventDefault();
+    const dist = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+    )
+    if (initialDist === 0) return
+    const factor = dist / initialDist
+    scaleX.value = Math.max(0.4, Math.min(2, initialScaleX * factor))
+    // We keep Y scale stable for now as requested or just focus on X
+    // scaleY.value = Math.max(0.5, Math.min(2, initialScaleY * factor))
+  }
+}
+
+function onTouchEnd() {
+  initialDist = 0
+}
+
 function toMin(iso) {
   const parts = new Intl.DateTimeFormat('fr-FR', {
     hour: '2-digit',
@@ -131,7 +169,7 @@ const dayData = computed(() => {
     const activeSessions = sessions.filter(s => !s.is_break && toMin(s.start_time) <= prev && toMin(s.end_time) >= curr)
     const active = activeSessions.length > 0
     const onlyLunch = active && activeSessions.every(s => s.format === 'Lunch Talk')
-    const rate = onlyLunch ? LUNCH_PX_PER_MIN : PX_PER_MIN
+    const rate = onlyLunch ? LUNCH_PX_PER_MIN.value : PX_PER_MIN.value
     cumulative += active ? (curr - prev) * rate : EMPTY_GAP_PX
     pixelMap.set(curr, cumulative)
   }
@@ -233,42 +271,30 @@ const dayData = computed(() => {
     return { conflictIds, breakBanners }
   }
 
-  if (onlyBookmarked.value || onlyFriendBookmarked.value) {
-    // Determine rooms that actually have cards
-    const activeRooms = new Set()
-    for (const c of cards) {
-      for (const r of c.rooms) activeRooms.add(r)
-    }
-    const filteredRooms = rooms.filter(r => activeRooms.has(r))
-
-    // Update cards with column and span based on filteredRooms
-    for (const c of cards) {
-      const indices = c.rooms.map(r => filteredRooms.indexOf(r)).filter(idx => idx !== -1).sort((a, b) => a - b)
-      if (indices.length) {
-        c.col = indices[0]
-        c.span = indices[indices.length - 1] - indices[0] + 1
-      } else {
-        c.col = -1
-        c.span = 0
-      }
-    }
-    cards = cards.filter(c => c.col !== -1)
-
-    const extra = computeExtra(cards, filteredRooms)
-    return {rooms: filteredRooms, cards, ...extra, ...common}
-  } else {
-    // Original logic for all rooms
-    for (const c of cards) {
-      const indices = c.rooms.map(r => rooms.indexOf(r)).filter(idx => idx !== -1).sort((a, b) => a - b)
-      if (indices.length) {
-        c.col = indices[0]
-        c.span = indices[indices.length - 1] - indices[0] + 1
-      }
-    }
-
-    const extra = computeExtra(cards, rooms)
-    return {rooms, cards, ...extra, ...common}
+  // Determine rooms that actually have cards
+  const activeRooms = new Set()
+  for (const c of cards) {
+    for (const r of c.rooms) activeRooms.add(r)
   }
+  const filteredRooms = (onlyBookmarked.value || onlyFriendBookmarked.value) 
+    ? rooms.filter(r => activeRooms.has(r))
+    : rooms
+
+  // Update cards with column and span based on filteredRooms
+  for (const c of cards) {
+    const indices = c.rooms.map(r => filteredRooms.indexOf(r)).filter(idx => idx !== -1).sort((a, b) => a - b)
+    if (indices.length) {
+      c.col = indices[0]
+      c.span = indices[indices.length - 1] - indices[0] + 1
+    } else {
+      c.col = -1
+      c.span = 0
+    }
+  }
+  cards = cards.filter(c => c.col !== -1)
+
+  const extra = computeExtra(cards, filteredRooms)
+  return {rooms: filteredRooms, cards, ...extra, ...common}
 })
 
 const totalWidth = computed(() => dayData.value ? dayData.value.rooms.length * CARD_WIDTH : 0)
@@ -316,6 +342,9 @@ function onAvatarError(event, profile) {
           @click="onlyFriendBookmarked = !onlyFriendBookmarked"
           title="Favoris amis"
         >👥</button>
+
+        <button class="filter-btn zoom-btn desktop-only" @click="scaleX = Math.max(0.4, scaleX - 0.1)" title="Zoom Out">-</button>
+        <button class="filter-btn zoom-btn desktop-only" @click="scaleX = Math.min(2, scaleX + 0.1)" title="Zoom In">+</button>
       </div>
 
       <div class="nav-arrows">
@@ -335,6 +364,9 @@ function onAvatarError(event, profile) {
         @mousemove="onMouseMove"
         @mouseup="onMouseUp"
         @mouseleave="onMouseUp"
+        @touchstart="onTouchStart"
+        @touchmove="onTouchMove"
+        @touchend="onTouchEnd"
     >
       <div class="grid-root" :style="{ width: totalWidth + 'px' }">
 
@@ -382,6 +414,7 @@ function onAvatarError(event, profile) {
                 left:   (s.col * CARD_WIDTH + 4) + 'px',
                 width:  (s.span * CARD_WIDTH - 8) + 'px',
                 '--format-color': s.format_color ?? '#e5e7eb',
+                '--format-color-subtle': (s.format_color ?? '#e5e7eb') + '33',
               }"
                 @click="selectedSession = s"
             >
@@ -497,6 +530,16 @@ function onAvatarError(event, profile) {
   .filter-controls { gap: 0.25rem; }
   .nav-arrows { gap: 0.125rem; }
   .nav-arrows { display: none; } /* Hide arrows on mobile to save space, user can tap tabs */
+  .zoom-btn { display: none; }
+}
+
+.desktop-only {
+  display: flex;
+}
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none;
+  }
 }
 
 .filter-controls { display: flex; gap: 0.5rem; }
