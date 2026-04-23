@@ -16,11 +16,17 @@ const LUNCH_PX_PER_MIN = 14
 const CARD_WIDTH = 260
 
 const DAYS = [
-  {value: 'wednesday', label: 'Mercredi', short: 'Wed'},
-  {value: 'thursday', label: 'Jeudi', short: 'Thu'},
-  {value: 'friday', label: 'Vendredi', short: 'Fri'},
+  {value: 'wednesday', label: 'Mercredi', short: 'Mer'},
+  {value: 'thursday', label: 'Jeudi', short: 'Jeu'},
+  {value: 'friday', label: 'Vendredi', short: 'Ven'},
 ]
-const activeDay = ref('wednesday')
+
+function getInitialDay() {
+  const day = new Date().toLocaleDateString('en-US', {weekday: 'long', timeZone: 'Europe/Paris'}).toLowerCase()
+  return DAYS.some(d => d.value === day) ? day : 'wednesday'
+}
+
+const activeDay = ref(getInitialDay())
 const activeDayIdx = computed(() => DAYS.findIndex(d => d.value === activeDay.value))
 
 const onlyBookmarked = ref(false)
