@@ -111,6 +111,7 @@ function linkKeynoteSimulcasts(sessions) {
 export const useSessionsStore = defineStore('sessions', () => {
   const sessions = ref([])
   const bookmarkedIds = ref(new Set())
+  const notes = ref(new Map()) // sessionId → note text
   const loading = ref(false)
 
   const auth = useAuthStore()
@@ -134,9 +135,27 @@ export const useSessionsStore = defineStore('sessions', () => {
     if (!auth.user) return
     const { data } = await supabase
       .from('agenda_items')
-      .select('session_id')
+      .select('session_id, note')
       .eq('user_id', auth.user.id)
     bookmarkedIds.value = new Set((data ?? []).map(r => r.session_id))
+    notes.value = new Map((data ?? []).filter(r => r.note).map(r => [r.session_id, r.note]))
+  }
+
+  async function saveNote(sessionId, text) {
+    if (!auth.user) return
+    const trimmed = text.trim()
+    if (trimmed) {
+      notes.value = new Map(notes.value).set(sessionId, trimmed)
+    } else {
+      const m = new Map(notes.value)
+      m.delete(sessionId)
+      notes.value = m
+    }
+    await supabase
+      .from('agenda_items')
+      .update({ note: trimmed || null })
+      .eq('user_id', auth.user.id)
+      .eq('session_id', sessionId)
   }
 
   async function toggleBookmark(sessionId) {
@@ -159,5 +178,5 @@ export const useSessionsStore = defineStore('sessions', () => {
 
   const tracks = computed(() => [...new Set(sessions.value.map(s => s.track).filter(Boolean))].sort())
 
-  return { sessions, bookmarkedIds, loading, tracks, fetchSessions, fetchBookmarks, toggleBookmark }
+  return { sessions, bookmarkedIds, notes, loading, tracks, fetchSessions, fetchBookmarks, toggleBookmark, saveNote }
 })
