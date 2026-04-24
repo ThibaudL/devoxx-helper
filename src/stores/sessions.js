@@ -112,6 +112,7 @@ export const useSessionsStore = defineStore('sessions', () => {
   const sessions = ref([])
   const bookmarkedIds = ref(new Set())
   const notes = ref(new Map()) // sessionId → note text
+  const seenIds = ref(new Set())
   const loading = ref(false)
 
   const auth = useAuthStore()
@@ -135,10 +136,11 @@ export const useSessionsStore = defineStore('sessions', () => {
     if (!auth.user) return
     const { data } = await supabase
       .from('agenda_items')
-      .select('session_id, note')
+      .select('session_id, note, seen')
       .eq('user_id', auth.user.id)
     bookmarkedIds.value = new Set((data ?? []).map(r => r.session_id))
     notes.value = new Map((data ?? []).filter(r => r.note).map(r => [r.session_id, r.note]))
+    seenIds.value = new Set((data ?? []).filter(r => r.seen).map(r => r.session_id))
   }
 
   async function saveNote(sessionId, text) {
@@ -176,7 +178,21 @@ export const useSessionsStore = defineStore('sessions', () => {
     bookmarkedIds.value = new Set(bookmarkedIds.value)
   }
 
+  async function toggleSeen(sessionId) {
+    if (!auth.user) return
+    const nowSeen = !seenIds.value.has(sessionId)
+    const next = new Set(seenIds.value)
+    if (nowSeen) next.add(sessionId)
+    else next.delete(sessionId)
+    seenIds.value = next
+    await supabase
+      .from('agenda_items')
+      .update({ seen: nowSeen })
+      .eq('user_id', auth.user.id)
+      .eq('session_id', sessionId)
+  }
+
   const tracks = computed(() => [...new Set(sessions.value.map(s => s.track).filter(Boolean))].sort())
 
-  return { sessions, bookmarkedIds, notes, loading, tracks, fetchSessions, fetchBookmarks, toggleBookmark, saveNote }
+  return { sessions, bookmarkedIds, notes, seenIds, loading, tracks, fetchSessions, fetchBookmarks, toggleBookmark, saveNote, toggleSeen }
 })

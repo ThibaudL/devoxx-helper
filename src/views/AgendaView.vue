@@ -226,8 +226,8 @@ async function handleSignOut() {
         </div>
         <div class="user-actions">
           <div class="action-group">
-            <RouterLink to="/synthese" class="btn btn-secondary btn-icon" title="Mon planning">
-              <span>★</span> <span class="btn-text">Mon planning</span>
+            <RouterLink to="/synthese" class="btn btn-secondary btn-icon" title="Mes bookmarks">
+              <span>★</span> <span class="btn-text">Mon bookmarks</span>
             </RouterLink>
             <RouterLink to="/import" class="btn btn-secondary btn-icon" title="Importer">
               <span>⬇</span> <span class="btn-text">Importer</span>

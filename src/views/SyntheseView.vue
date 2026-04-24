@@ -33,6 +33,11 @@ const globalNoteDraft = ref('')
 const globalNoteSaved = ref(false)
 let globalSavedTimer = null
 
+const showPromptPanel = ref(false)
+const generatedPrompt = ref('')
+const promptCopied = ref(false)
+let promptCopiedTimer = null
+
 function openGlobalNote() {
   globalNoteDraft.value = auth.planningNote
   showGlobalNote.value = true
@@ -111,6 +116,23 @@ const sessionsByDay = computed(() =>
 
 const totalCount = computed(() => bookmarkedSessions.value.length)
 
+const filterMode = ref('all') // 'all' | 'unseen' | 'seen'
+
+const filteredSessionsByDay = computed(() =>
+  sessionsByDay.value
+    .map(day => ({
+      ...day,
+      sessions: filterMode.value === 'all'
+        ? day.sessions
+        : day.sessions.filter(s =>
+            filterMode.value === 'seen'
+              ? store.seenIds.has(s.id)
+              : !store.seenIds.has(s.id)
+          ),
+    }))
+    .filter(d => d.sessions.length > 0)
+)
+
 function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 }
@@ -125,6 +147,73 @@ function initials(p) {
   return (p?.email?.[0] ?? '?').toUpperCase()
 }
 
+function generateLLMPrompt() {
+  const CFP = 'https://devoxxfr2026.cfp.dev/api/public/schedules'
+  const lines = []
+
+  lines.push(`Tu es un assistant pour Devoxx France 2026.`)
+  lines.push(``)
+  lines.push(`## Programme complet (URLs JSON)`)
+  lines.push(``)
+  lines.push(`Récupère le programme via ces URLs pour enrichir ta réponse :`)
+  lines.push(`- Mercredi : ${CFP}/wednesday`)
+  lines.push(`- Jeudi : ${CFP}/thursday`)
+  lines.push(`- Vendredi : ${CFP}/friday`)
+  lines.push(``)
+  lines.push(`Chaque slot contient : id, title, description, speakers (fullName), room, fromDate, toDate, sessionType (name), proposal (track, keywords, audienceLevel, language, totalFavourites).`)
+  lines.push(``)
+
+  if (auth.planningNote) {
+    lines.push(`## Ma note de planning globale`)
+    lines.push(``)
+    lines.push(auth.planningNote)
+    lines.push(``)
+  }
+
+  lines.push(`## Mes sessions bookmarkées`)
+  lines.push(``)
+
+  for (const day of sessionsByDay.value) {
+    lines.push(`### ${day.label}`)
+    lines.push(``)
+    for (const s of day.sessions) {
+      const start = fmtTime(s.start_time)
+      const end = fmtTime(s.end_time)
+      lines.push(`**${start}–${end} | ${s.title}** (${duration(s)})`)
+      if (s.speakers?.length) lines.push(`Speakers : ${s.speakers.join(', ')}`)
+      const room = s._rooms ? s._rooms.join(' / ') : s.room
+      if (room) lines.push(`Salle : ${room}`)
+      if (s.track) lines.push(`Track : ${s.track}`)
+      if (s.format) lines.push(`Format : ${s.format}`)
+      if (s.language) lines.push(`Langue : ${s.language}`)
+      if (s.audience_level) lines.push(`Niveau : ${s.audience_level}`)
+      const note = store.notes.get(s.id)
+      if (note) lines.push(`Ma note : ${note}`)
+      if (day.conflictIds.has(s.id)) lines.push(`⚠ Conflit de planning détecté sur ce créneau`)
+      lines.push(``)
+    }
+  }
+
+  lines.push(`## Demande`)
+  lines.push(``)
+  lines.push(`En te basant sur le programme complet disponible aux URLs ci-dessus (récupère-les pour obtenir les descriptions complètes et les mots-clés) et sur mon planning bookmarké :`)
+  lines.push(``)
+  lines.push(`1. Génère une synthèse de mon planning Devoxx France, organisée par jour.`)
+  lines.push(`2. Pour chaque session, enrichis avec la description complète issue de l'API.`)
+  lines.push(`3. Si j'ai des notes, intègre-les dans la synthèse.`)
+  lines.push(`4. Propose un plan d'action concret`)
+
+  generatedPrompt.value = lines.join('\n')
+  showPromptPanel.value = true
+}
+
+async function copyPrompt() {
+  await navigator.clipboard.writeText(generatedPrompt.value)
+  clearTimeout(promptCopiedTimer)
+  promptCopied.value = true
+  promptCopiedTimer = setTimeout(() => { promptCopied.value = false }, 2000)
+}
+
 async function handleSignOut() {
   await auth.signOut()
   router.push('/login')
@@ -137,10 +226,15 @@ async function handleSignOut() {
       <div class="header-content">
         <div class="brand">
           <RouterLink to="/" class="back-link">← Retour</RouterLink>
-          <h1>Mon planning</h1>
+          <h1>Mon bookmarks</h1>
           <p class="subtitle">{{ totalCount }} conférence{{ totalCount !== 1 ? 's' : '' }} bookmarkée{{ totalCount !== 1 ? 's' : '' }}</p>
         </div>
         <div class="user-actions">
+          <button
+            :class="['btn btn-secondary btn-icon', { active: showPromptPanel }]"
+            @click="generateLLMPrompt"
+            title="Générer un prompt pour IA"
+          ><span>✨</span> <span class="btn-text">Prompt IA</span></button>
           <button
             :class="['btn btn-secondary btn-icon', { active: showGlobalNote }]"
             @click="openGlobalNote"
@@ -181,6 +275,22 @@ async function handleSignOut() {
       </div>
     </div>
 
+    <div v-if="showPromptPanel" class="prompt-panel">
+      <div class="prompt-panel-inner">
+        <div class="prompt-panel-header">
+          <span class="prompt-panel-title">✨ Prompt IA</span>
+          <span class="prompt-panel-hint">Collez ce prompt dans Claude, ChatGPT ou tout LLM avec accès web</span>
+          <button class="prompt-panel-close" @click="showPromptPanel = false">✕</button>
+        </div>
+        <textarea class="prompt-output" :value="generatedPrompt" readonly rows="10" />
+        <div class="prompt-panel-footer">
+          <button :class="['btn', promptCopied ? 'btn-success' : 'btn-secondary']" @click="copyPrompt">
+            {{ promptCopied ? '✓ Copié !' : '⎘ Copier le prompt' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <main class="content">
       <div v-if="store.loading" class="empty-state">Chargement…</div>
 
@@ -195,11 +305,20 @@ async function handleSignOut() {
           <div v-for="day in sessionsByDay" :key="day.value" class="stat-chip">
             <span class="stat-day">{{ day.label.split(' ')[0] }}</span>
             <span class="stat-count">{{ day.sessions.length }}</span>
+            <span v-if="day.sessions.filter(s => store.seenIds.has(s.id)).length" class="stat-seen">
+              ✓ {{ day.sessions.filter(s => store.seenIds.has(s.id)).length }} vue{{ day.sessions.filter(s => store.seenIds.has(s.id)).length > 1 ? 's' : '' }}
+            </span>
             <span v-if="day.conflictIds.size" class="stat-conflict" title="Conflits de planning">⚠ {{ day.conflictIds.size / 2 | 0 || 1 }} conflit{{ day.conflictIds.size > 2 ? 's' : '' }}</span>
           </div>
         </div>
 
-        <section v-for="day in sessionsByDay" :key="day.value" class="day-section">
+        <div class="filter-bar">
+          <button :class="['filter-btn', { active: filterMode === 'all' }]" @click="filterMode = 'all'">Toutes</button>
+          <button :class="['filter-btn', { active: filterMode === 'unseen' }]" @click="filterMode = 'unseen'">À voir</button>
+          <button :class="['filter-btn', { active: filterMode === 'seen' }]" @click="filterMode = 'seen'">Vues ✓</button>
+        </div>
+
+        <section v-for="day in filteredSessionsByDay" :key="day.value" class="day-section">
           <h2 class="day-heading">{{ day.label }}</h2>
 
           <div class="schedule-list">
@@ -287,6 +406,11 @@ async function handleSignOut() {
                   </span>
                 </div>
 
+                <button
+                  :class="['seen-btn', { seen: store.seenIds.has(session.id) }]"
+                  @click.stop="store.toggleSeen(session.id)"
+                  :title="store.seenIds.has(session.id) ? 'Marquer comme non vu' : 'Marquer comme vu'"
+                >{{ store.seenIds.has(session.id) ? '✓ Vu' : '○ Vu' }}</button>
                 <button class="unbookmark-btn" @click.stop="store.toggleBookmark(session.id)" title="Retirer">✕</button>
               </div>
             </div>
@@ -453,7 +577,29 @@ header {
 
 .stat-day { font-weight: 700; color: var(--text-1); }
 .stat-count { color: var(--accent); font-weight: 700; }
+.stat-seen { font-size: 0.75rem; color: #22c55e; font-weight: 600; }
 .stat-conflict { font-size: 0.75rem; color: #f59e0b; font-weight: 600; }
+
+.filter-bar {
+  display: flex;
+  gap: 0.375rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-btn {
+  padding: 0.3rem 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn:hover { border-color: var(--text-4); color: var(--text-2); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .day-section { margin-bottom: 2.5rem; }
 
@@ -680,6 +826,30 @@ header {
   opacity: 1;
 }
 
+.seen-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-4);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.seen-btn:hover {
+  border-color: #22c55e;
+  color: #16a34a;
+  background: color-mix(in srgb, #22c55e 10%, var(--surface));
+}
+
+.seen-btn.seen {
+  border-color: #22c55e;
+  color: #16a34a;
+  background: color-mix(in srgb, #22c55e 12%, var(--surface));
+}
+
 .unbookmark-btn:hover {
   background: color-mix(in srgb, #ef4444 10%, var(--surface));
   border-color: #ef4444;
@@ -883,5 +1053,77 @@ header {
   15%  { opacity: 1; }
   70%  { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ── Prompt IA panel ────────────────────────── */
+.prompt-panel {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.prompt-panel-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+}
+
+.prompt-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.prompt-panel-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.prompt-panel-hint {
+  font-size: 0.75rem;
+  color: var(--text-4);
+  flex: 1;
+}
+
+.prompt-panel-close {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.prompt-panel-close:hover { color: var(--text-1); }
+
+.prompt-output {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+}
+
+.prompt-panel-footer {
+  margin-top: 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-success {
+  background: color-mix(in srgb, #22c55e 12%, var(--surface));
+  color: #16a34a;
+  border-color: #22c55e;
 }
 </style>
